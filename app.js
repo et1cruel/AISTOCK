@@ -139,7 +139,18 @@ const TICKERS = Object.keys(SEED);
 const LiveCache = {
   get(k, maxAge) { try { const c = JSON.parse(localStorage.getItem('asrt_cache_' + k)); if (c && Date.now() - c.ts < maxAge) return c.v; } catch (_) {} return null; },
   set(k, v) { try { localStorage.setItem('asrt_cache_' + k, JSON.stringify({ ts: Date.now(), v })); } catch (_) {} },
+  meta(k) { try { const c = JSON.parse(localStorage.getItem('asrt_cache_' + k)); if (c && c.ts) return { ts: c.ts, v: c.v }; } catch (_) {} return null; },
 };
+/* Fetch with expired-cache fallback: serves CACHED data (labeled with last
+   update) instead of failing when the network does. Never invents. */
+async function withCache(key, fn) {
+  try { const v = await fn(); return { v, cached: false, at: Date.now() }; }
+  catch (e) {
+    const m = LiveCache.meta(key);
+    if (m && m.v != null) return { v: m.v, cached: true, at: m.ts, err: String((e && e.message) || e) };
+    throw e;
+  }
+}
 async function fetchJSON(url, ms) {
   const c = new AbortController(); const t = setTimeout(() => c.abort(), ms || 12000);
   try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url); return await r.json(); }
@@ -305,6 +316,7 @@ async function getFundamentals(t) {
     ocfA: annualFY(ocfObs),
     ocfQ: qtrSeries(ocfObs),
     capeA: annualFY(capeObs),
+    capeQ: qtrSeries(capeObs),
     assets: latestInst(conceptObs(facts, ['Assets'], 'USD')),
     liab: latestInst(conceptObs(facts, ['Liabilities'], 'USD')),
     cash: latestInst(conceptObs(facts, ['CashAndCashEquivalentsAtCarryingValue'], 'USD')),
@@ -448,38 +460,75 @@ async function fillMarketOverview() {
     if (ts && $('#mktTs')) ts.innerHTML = '<span class="muted small">Data may be stale.</span>';
   }
 }
-/* ---------------- TRACKING TABLE ENGINE (live-first, validated) ---------
-   SOURCE PRIORITY: SEC EDGAR FY filings → TradingView TTM → N/A.
+/* ---------------- TRACKING TABLE ENGINE v3 (TTM-only, validated) --------
+   PERIOD STANDARD: every metric is TTM. Growth = current-4Q sum vs prior-4Q
+   sum (SEC quarterly) or provider TTM YoY (labeled). NEVER mixes FY/TTM/Q.
+   SOURCE PRIORITY: SEC EDGAR quarterly filings → TradingView TTM → N/A.
    Never invented, never silently replaced by hard-coded demo values.
-   PERIODS: growth = YoY (FY preferred, else TTM labeled) · margins share
-   numerator/denominator period · FCF = OCF − CapEx (same FY frame) ·
+   FCF = TTM OCF − TTM CapEx (signed; negative shown, never N/A-if-data).
    P/E = live price ÷ TTM diluted EPS (Trailing; N/A when EPS ≤ 0).
+   CROSS-CHECK: provider vs calculated → DATA DISCREPANCY flag if apart.
    CURRENCY: filing currency (ASML = EUR, price = USD ADR — labeled).
-   CACHE TTL: prices/TV ≤ 15 min · SEC companyfacts ≤ 7 d · SEC derived
-   ≤ 24 h (enforced by LiveCache; financials cached longer than prices).
+   CACHE: prices/TV ≤ 15 min · SEC derived ≤ 24 h; expired cache served only
+   as labeled CACHED with last-update timestamp (withCache).
    ---------------------------------------------------------------------- */
-function fyPair(a) {
-  if (!a || a.length < 2) return null;
-  const cur = a[a.length - 1], prev = a[a.length - 2];
-  if (cur == null || prev == null || prev.val == null || cur.val == null || prev.val === 0) return null;
-  return { cur, prev, g: ((cur.val - prev.val) / Math.abs(prev.val)) * 100 };
+/* Quarterly → true-quarterly: 10-Q cash-flow prints are YTD, so difference
+   consecutive prints of the same fiscal year. Income-statement quarters
+   (duration < ~110 d) pass through untouched. */
+function qtrToQuarterly(obs) {
+  const q = (obs || []).filter((o) => o.start && o.val != null && /^Q[1-4]/.test(o.fp || ''))
+    .sort((a, b) => new Date(a.end) - new Date(b.end));
+  const ytd = {};
+  return q.map((o) => {
+    const dur = (new Date(o.end) - new Date(o.start)) / 864e5;
+    let qv;
+    if (dur < 110) { qv = o.val; ytd[o.start] = (ytd[o.start] || 0) + o.val; }
+    else { qv = o.val - (ytd[o.start] || 0); ytd[o.start] = o.val; }
+    return { end: o.end, start: o.start, fp: o.fp, frame: o.frame || ((o.fp || '') + ' ' + String(o.end).slice(0, 7)), filed: o.filed, val: o.val, qv };
+  });
 }
-function fyAt(a, frame) {
-  if (!a || !a.length) return null;
-  return (frame && a.find((x) => x.frame === frame)) || a[a.length - 1];
-}
-function fyFCF(f) {
-  const oc = f.ocfA || [], cx = f.capeA || [];
-  for (let i = oc.length - 1; i >= 0; i--) {
-    const m = cx.find((x) => x.frame === oc[i].frame);
-    if (m && oc[i].val != null && m.val != null) return { frame: oc[i].frame, val: oc[i].val - m.val, filed: oc[i].filed };
+/* TTM sums: last 4 quarters vs prior 4 (needs ≥8 for growth). */
+function ttmSums(qs) {
+  if (!qs || qs.length < 4) return null;
+  const sum = (a) => a.reduce((x, o) => x + (o.qv != null ? o.qv : o.val), 0);
+  const cur = qs.slice(-4), out = { sum: sum(cur), end: cur[3].end, start: cur[0].start, filed: cur[3].filed, n: cur.length };
+  if (qs.length >= 8) {
+    const ps = sum(qs.slice(-8, -4));
+    out.prev = ps;
+    out.g = ps !== 0 ? (((out.sum - ps) / Math.abs(ps)) * 100) : null;
   }
-  return null;
+  return out;
+}
+/* Explainable risk model — every factor from real data with its formula.
+   Needs ≥3 of 5 factors, else RISK MODEL UNAVAILABLE (never random labels). */
+function riskModel(pe, de, netM, fcfM, niCv) {
+  const F = [];
+  const cl = (v) => Math.max(0, Math.min(100, v));
+  if (pe != null && isFinite(pe)) F.push({ k: 'Valuation', v: cl((pe - 12) / 38 * 100), f: '(Trailing P/E − 12) ÷ 38 × 100', d: 'P/E ' + fmtN(pe, 1) });
+  if (de != null && isFinite(de)) F.push({ k: 'Leverage', v: cl(de * 100), f: 'D/E × 100 (D/E ≥ 1 → 100)', d: 'D/E ' + fmtN(de, 2) });
+  if (netM != null && isFinite(netM)) F.push({ k: 'Profitability', v: cl((20 - netM) / 40 * 100), f: '(20 − NetM%) ÷ 40 × 100', d: 'NetM ' + fmtN(netM, 1) + '%' });
+  if (fcfM != null && isFinite(fcfM)) F.push({ k: 'Cash flow', v: cl((15 - fcfM) / 45 * 100), f: '(15 − FCFmargin%) ÷ 45 × 100', d: 'FCF margin ' + fmtN(fcfM, 1) + '%' });
+  if (niCv != null && isFinite(niCv)) F.push({ k: 'Earnings volatility', v: cl(niCv / 2 * 100), f: 'CV(last-8Q net income) ÷ 2 × 100', d: 'CV ' + fmtN(niCv, 2) });
+  if (F.length < 3) return { label: 'RISK MODEL UNAVAILABLE', cls: 'b-gray', score: null, tip: 'Risk factors need ≥3 of 5 real-data inputs; have ' + F.length + '. No label invented.' };
+  const score = F.reduce((a, x) => a + x.v, 0) / F.length;
+  const label = score < 35 ? 'ต่ำ' : score < 65 ? 'กลาง' : 'สูง';
+  const cls = score < 35 ? 'b-green' : score < 65 ? 'b-yellow' : 'b-red';
+  return { label, cls, score: +score.toFixed(0), tip: 'Risk ' + score.toFixed(0) + '/100 = mean of ' + F.length + ' factors\n' + F.map((x) => '• ' + x.k + ' ' + x.v.toFixed(0) + ' — ' + x.f + ' [' + x.d + ']').join('\n') };
+}
+function niCv8(niQ) {
+  const q = (niQ || []).slice(-8).map((o) => o.qv != null ? o.qv : o.val).filter((v) => v != null && isFinite(v));
+  if (q.length < 8) return null;
+  const mean = q.reduce((a, b) => a + b, 0) / q.length;
+  if (!mean) return null;
+  const sd = Math.sqrt(q.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / q.length);
+  return sd / Math.abs(mean);
 }
 const ST_BADGE = {
   VERIFIED: ['b-green', '🟢 VERIFIED'],
+  LOW: ['b-yellow', '🟡 LOW CONFIDENCE'],
   DELAYED: ['b-yellow', '🟡 DELAYED'],
   STALE: ['b-orange', '🟠 STALE'],
+  CACHED: ['b-orange', '🟠 CACHED'],
   ERROR: ['b-red', '🔴 DATA ERROR'],
   DEMO: ['b-gray', '⚪ DEMO DATA'],
 };
@@ -487,12 +536,13 @@ function stBadgeHTML(st, reason) {
   const m = ST_BADGE[st] || ST_BADGE.ERROR;
   return '<span class="badge ' + m[0] + '" title="' + esc(reason || m[1]) + '">' + m[1] + '</span>';
 }
-function tipHTML(metric, val, period, def, src, upd) {
-  return metric + '\nValue: ' + val + '\nPeriod: ' + (period || 'N/A') + '\nDefinition: ' + def + '\nSource: ' + src + '\nUpdated: ' + (upd || 'N/A');
+function tipHTML(metric, val, period, def, src, upd, url) {
+  return metric + '\nValue: ' + val + '\nPeriod: ' + (period || 'N/A') + '\nDefinition: ' + def + '\nSource: ' + src + (url ? '\nSource URL: ' + url : '') + '\nUpdated: ' + (upd || 'N/A');
 }
 async function getTrackingRow(t) {
   const M = (v, period, tip) => ({ v, period, tip });
   const NA_CELL = (metric, def, src, reason) => M(null, null, tipHTML(metric, 'N/A — ' + reason, null, def, src, null));
+  const issues0 = [];
   /* DEMO provider: explicitly labeled demo (allowed), never presented live. */
   if (!DataService.liveOn()) {
     const s = SEED[t];
@@ -509,10 +559,17 @@ async function getTrackingRow(t) {
     };
   }
   let tv = null, sec = null, q = null;
-  try { tv = await getTVSnapshot(t); } catch (_) {}
-  try { const qq = await getQuotesLive([t]); q = (qq && qq[t]) || null; } catch (_) {}
-  try { sec = await getFundamentals(t); } catch (_) {}
-  const issues = [];
+  let tvCached = false, qCached = false, secCached = false, lastUpdate = 0;
+  const noteCache = (r, which) => { if (r && r.cached) { if (which === 0) tvCached = true; if (which === 1) qCached = true; if (which === 2) secCached = true; if (r.at > lastUpdate) lastUpdate = r.at; } };
+  try { const r = await withCache('tv3_' + t, () => getTVSnapshot(t)); tv = r.v; noteCache(r, 0); } catch (e) { issues0.push('TV unreachable'); }
+  try { const r = await withCache('quotes_' + t, () => getQuotesLive([t]).then((qq) => (qq && qq[t]) || null)); q = r.v; noteCache(r, 1); } catch (e) { issues0.push('quote unreachable'); }
+  try { const r = await withCache('fun_' + t, () => getFundamentals(t)); sec = r.v; noteCache(r, 2); } catch (e) { issues0.push('SEC unreachable'); }
+  const issues = issues0;
+  /* ---- ticker resolution: unknown tickers show no metrics ---- */
+  const secAny = sec && (((sec.revQ || []).length + (sec.revA || []).length) > 0 || ((sec.niQ || []).length + (sec.niA || []).length) > 0);
+  if (!SEED[t] && !(tv && tv.close != null) && !(q && q.close) && !secAny) {
+    return { t, unknown: true, status: 'ERROR', reason: 'UNKNOWN TICKER — cannot resolve to a company/security. Metrics hidden; no data invented.' };
+  }
   /* ---- price: timestamped Stooq preferred, else TV session ---- */
   let price = null, chg = null, pStamp = null, pSrc = null;
   if (q && q.close > 0) {
@@ -523,94 +580,158 @@ async function getTrackingRow(t) {
   }
   if (price == null) issues.push('no price');
   if (!pStamp) issues.push('no price timestamp');
-  /* ---- SEC FY preferred; TV TTM labeled fallback ---- */
-  const revP = sec ? fyPair(sec.revA) : null;
-  const niP = sec ? fyPair(sec.niA) : null;
-  const revL = sec && sec.revA && sec.revA.length ? sec.revA[sec.revA.length - 1] : null;
+  /* ---- TTM engine: ONE period standard for the whole row ---- */
   const ccy = (sec && sec.currency) || 'USD';
+  const secURL = sec && sec.cik ? 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=' + sec.cik + '&type=10-K&count=10' : null;
+  const tvURL = tvPageURL(t);
+  const revQ = sec ? qtrToQuarterly(sec.revQ) : [];
+  const niQ = sec ? qtrToQuarterly(sec.niQ) : [];
+  const gpQ = sec ? qtrToQuarterly(sec.gpQ) : [];
+  const ocfQ = sec ? qtrToQuarterly(sec.ocfQ) : [];
+  const capeQ = sec ? qtrToQuarterly(sec.capeQ) : [];
+  const epsQ = sec ? qtrToQuarterly(sec.epsQ) : [];
+  const revT = ttmSums(revQ), niT = ttmSums(niQ), gpT = ttmSums(gpQ);
+  const ocfT = ttmSums(ocfQ), cxT = ttmSums(capeQ), epsT = ttmSums(epsQ);
+  const ttmPer = revT ? ('TTM ' + String(revT.start).slice(0, 10) + ' → ' + String(revT.end).slice(0, 10)) : 'TTM';
+  const ttmUpd = revT && revT.filed ? String(revT.filed).slice(0, 10) : null;
   let revG, niG, gm, nm, fcf;
-  if (revP) {
-    revG = M(fmtPct(revP.g, 1), revP.cur.frame, tipHTML('Revenue Growth YoY', fmtPct(revP.g, 1), revP.cur.frame + ' vs ' + revP.prev.frame, 'YoY Revenue Growth = (cur − prev) ÷ |prev| × 100', 'SEC EDGAR', (revP.cur.filed || '').slice(0, 10)));
+  let tvFallback = false;
+  const disc = [];
+  const tagD = (s) => s ? ' ⚠ DISCREPANCY' : '';
+  /* Revenue Growth = TTM YoY */
+  if (revT && revT.g != null) {
+    let extra = '';
+    if (tv && tv.total_revenue_yoy_growth_ttm != null && Math.abs(revT.g - tv.total_revenue_yoy_growth_ttm) > 5) {
+      extra = 'SEC ' + fmtPct(revT.g, 1) + ' vs TV ' + fmtPct(tv.total_revenue_yoy_growth_ttm, 1);
+      disc.push('revenue growth');
+    }
+    revG = M(fmtPct(revT.g, 1) + tagD(extra), ttmPer, tipHTML('Revenue Growth YoY', fmtPct(revT.g, 1), ttmPer + ' · TTM YoY', 'TTM Revenue Growth = (TTM cur − TTM prev) ÷ |TTM prev| × 100' + (extra ? ' · ' + extra : ''), 'SEC EDGAR companyfacts', ttmUpd, secURL));
   } else if (tv && tv.total_revenue_yoy_growth_ttm != null) {
-    revG = M(fmtPct(tv.total_revenue_yoy_growth_ttm, 1), 'TTM YoY', tipHTML('Revenue Growth YoY', fmtPct(tv.total_revenue_yoy_growth_ttm, 1), 'TTM YoY', 'YoY Revenue Growth (TTM)', 'TradingView', 'latest session'));
+    tvFallback = true; issues.push('SEC quarterly revenue <8Q → provider TTM');
+    revG = M(fmtPct(tv.total_revenue_yoy_growth_ttm, 1), 'TTM YoY', tipHTML('Revenue Growth YoY', fmtPct(tv.total_revenue_yoy_growth_ttm, 1), 'TTM YoY', 'TTM Revenue Growth (provider)', 'TradingView', 'latest session', tvURL));
   } else {
     issues.push('no revenue period');
-    revG = NA_CELL('Revenue Growth YoY', 'YoY Revenue Growth', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
+    revG = NA_CELL('Revenue Growth YoY', 'TTM Revenue Growth', 'SEC EDGAR + TradingView', 'DATA UNAVAILABLE');
   }
-  if (niP) {
-    niG = M(fmtPct(niP.g, 1), niP.cur.frame, tipHTML('Net Income Growth YoY', fmtPct(niP.g, 1), niP.cur.frame + ' vs ' + niP.prev.frame, 'YoY Net Income Growth = (cur − prev) ÷ |prev| × 100', 'SEC EDGAR', (niP.cur.filed || '').slice(0, 10)));
+  /* Net Income Growth = TTM YoY (NetIncomeLoss, same definition both windows) */
+  if (niT && niT.g != null) {
+    let extra = '';
+    if (tv && tv.net_income_yoy_growth_ttm != null && Math.abs(niT.g - tv.net_income_yoy_growth_ttm) > 5) {
+      extra = 'SEC ' + fmtPct(niT.g, 1) + ' vs TV ' + fmtPct(tv.net_income_yoy_growth_ttm, 1);
+      disc.push('net income growth');
+    }
+    niG = M(fmtPct(niT.g, 1) + tagD(extra), ttmPer, tipHTML('Net Income Growth YoY', fmtPct(niT.g, 1), ttmPer + ' · TTM YoY', 'TTM Net Income Growth = (TTM cur − TTM prev) ÷ |TTM prev| × 100 · NetIncomeLoss both windows' + (extra ? ' · ' + extra : ''), 'SEC EDGAR companyfacts', ttmUpd, secURL));
   } else if (tv && tv.net_income_yoy_growth_ttm != null) {
-    niG = M(fmtPct(tv.net_income_yoy_growth_ttm, 1), 'TTM YoY', tipHTML('Net Income Growth YoY', fmtPct(tv.net_income_yoy_growth_ttm, 1), 'TTM YoY', 'YoY Net Income Growth (TTM)', 'TradingView', 'latest session'));
+    tvFallback = true; issues.push('SEC quarterly net income <8Q → provider TTM');
+    niG = M(fmtPct(tv.net_income_yoy_growth_ttm, 1), 'TTM YoY', tipHTML('Net Income Growth YoY', fmtPct(tv.net_income_yoy_growth_ttm, 1), 'TTM YoY', 'TTM Net Income Growth (provider)', 'TradingView', 'latest session', tvURL));
   } else {
     issues.push('no net income period');
-    niG = NA_CELL('Net Income Growth YoY', 'YoY Net Income Growth', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
+    niG = NA_CELL('Net Income Growth YoY', 'TTM Net Income Growth', 'SEC EDGAR + TradingView', 'DATA UNAVAILABLE');
   }
-  if (revL) {
-    const gp = fyAt(sec.gpA, revL.frame), ni = fyAt(sec.niA, revL.frame);
-    if (gp && revL.val) {
-      const v = (gp.val / revL.val) * 100;
-      if (!isFinite(v) || Math.abs(v) > 1000) issues.push('gross margin out of range');
-      gm = M(fmtN(v, 1) + '%', gp.frame, tipHTML('Gross Margin', fmtN(v, 1) + '%', gp.frame, 'Gross Profit / Revenue × 100 (' + ccy + ')', 'SEC EDGAR', (gp.filed || '').slice(0, 10)));
-    } else if (tv && tv.gross_margin_ttm != null) {
-      gm = M(fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', tipHTML('Gross Margin', fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', 'Gross Profit / Revenue × 100', 'TradingView', 'latest session'));
-    } else { gm = NA_CELL('Gross Margin', 'Gross Profit / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.'); }
-    if (ni && revL.val) {
-      const v = (ni.val / revL.val) * 100;
-      if (!isFinite(v) || Math.abs(v) > 1000) issues.push('net margin out of range');
-      nm = M(fmtN(v, 1) + '%', ni.frame, tipHTML('Net Margin', fmtN(v, 1) + '%', ni.frame, 'Net Income / Revenue × 100 (' + ccy + ')', 'SEC EDGAR', (ni.filed || '').slice(0, 10)));
-    } else if (tv && tv.net_margin_ttm != null) {
-      nm = M(fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', tipHTML('Net Margin', fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', 'Net Income / Revenue × 100', 'TradingView', 'latest session'));
-    } else { nm = NA_CELL('Net Margin', 'Net Income / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.'); }
-  } else if (tv && (tv.gross_margin_ttm != null || tv.net_margin_ttm != null)) {
-    gm = tv.gross_margin_ttm != null ? M(fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', tipHTML('Gross Margin', fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', 'Gross Profit / Revenue × 100', 'TradingView', 'latest session')) : NA_CELL('Gross Margin', 'Gross Profit / Revenue × 100', 'TradingView', 'Unable to retrieve verified data.');
-    nm = tv.net_margin_ttm != null ? M(fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', tipHTML('Net Margin', fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', 'Net Income / Revenue × 100', 'TradingView', 'latest session')) : NA_CELL('Net Margin', 'Net Income / Revenue × 100', 'TradingView', 'Unable to retrieve verified data.');
+  /* Gross Margin = TTM GP / TTM Revenue */
+  if (gpT && revT && revT.sum) {
+    const v = (gpT.sum / revT.sum) * 100;
+    if (!isFinite(v) || Math.abs(v) > 1000) issues.push('gross margin math invalid');
+    let extra = '';
+    if (tv && tv.gross_profit_ttm != null && tv.total_revenue_ttm) {
+      const pv = (tv.gross_profit_ttm / tv.total_revenue_ttm) * 100;
+      if (Math.abs(v - pv) > 2) { extra = 'SEC ' + fmtN(v, 1) + '% vs TV ' + fmtN(pv, 1) + '%'; disc.push('gross margin'); }
+    } else if (tv && tv.gross_margin_ttm != null && Math.abs(v - tv.gross_margin_ttm) > 2) {
+      extra = 'SEC ' + fmtN(v, 1) + '% vs TV ' + fmtN(tv.gross_margin_ttm, 1) + '%'; disc.push('gross margin');
+    }
+    gm = M(fmtN(v, 1) + '%' + tagD(extra), ttmPer, tipHTML('Gross Margin', fmtN(v, 1) + '%', ttmPer, 'Gross Profit TTM / Revenue TTM × 100 (' + ccy + ')' + (extra ? ' · ' + extra : ''), 'SEC EDGAR companyfacts', ttmUpd, secURL));
+  } else if (tv && tv.gross_margin_ttm != null) {
+    tvFallback = true; issues.push('SEC quarterly gross profit <4Q → provider TTM');
+    gm = M(fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', tipHTML('Gross Margin', fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', 'Gross Profit TTM / Revenue TTM × 100 (provider)', 'TradingView', 'latest session', tvURL));
+  } else { issues.push('no gross profit'); gm = NA_CELL('Gross Margin', 'Gross Profit TTM / Revenue TTM × 100', 'SEC EDGAR + TradingView', 'DATA UNAVAILABLE'); }
+  /* Net Margin = TTM NI / TTM Revenue */
+  if (niT && revT && revT.sum) {
+    const v = (niT.sum / revT.sum) * 100;
+    if (!isFinite(v) || Math.abs(v) > 1000) issues.push('net margin math invalid');
+    let extra = '';
+    if (tv && tv.net_income_ttm != null && tv.total_revenue_ttm) {
+      const pv = (tv.net_income_ttm / tv.total_revenue_ttm) * 100;
+      if (Math.abs(v - pv) > 2) { extra = 'SEC ' + fmtN(v, 1) + '% vs TV ' + fmtN(pv, 1) + '%'; disc.push('net margin'); }
+    } else if (tv && tv.net_margin_ttm != null && Math.abs(v - tv.net_margin_ttm) > 2) {
+      extra = 'SEC ' + fmtN(v, 1) + '% vs TV ' + fmtN(tv.net_margin_ttm, 1) + '%'; disc.push('net margin');
+    }
+    nm = M(fmtN(v, 1) + '%' + tagD(extra), ttmPer, tipHTML('Net Margin', fmtN(v, 1) + '%', ttmPer, 'Net Income TTM / Revenue TTM × 100 (' + ccy + ')' + (extra ? ' · ' + extra : ''), 'SEC EDGAR companyfacts', ttmUpd, secURL));
+  } else if (tv && tv.net_margin_ttm != null) {
+    tvFallback = true; issues.push('SEC quarterly net income <4Q → provider TTM');
+    nm = M(fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', tipHTML('Net Margin', fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', 'Net Income TTM / Revenue TTM × 100 (provider)', 'TradingView', 'latest session', tvURL));
+  } else { issues.push('no net income'); nm = NA_CELL('Net Margin', 'Net Income TTM / Revenue TTM × 100', 'SEC EDGAR + TradingView', 'DATA UNAVAILABLE'); }
+  /* FCF = TTM OCF − TTM CapEx (signed; negative shown, never N/A-if-data) */
+  if (ocfT && cxT) {
+    const v = ocfT.sum - cxT.sum;
+    let extra = '';
+    if (tv && tv.free_cash_flow_ttm != null && Math.abs(tv.free_cash_flow_ttm) > 0) {
+      if (Math.abs(v - tv.free_cash_flow_ttm) / Math.abs(tv.free_cash_flow_ttm) > 0.10) {
+        extra = 'SEC ' + fmtMCcy(v / 1e9, ccy) + ' vs TV ' + fmtMCcy(tv.free_cash_flow_ttm / 1e9, 'USD');
+        disc.push('FCF');
+      }
+    }
+    fcf = M(fmtMCcy(v / 1e9, ccy) + tagD(extra), ttmPer + ' · ' + ccy, tipHTML('FCF', fmtMCcy(v / 1e9, ccy), ttmPer + ' · ' + ccy, 'TTM Operating Cash Flow − TTM Capital Expenditures (quarterly prints, YTD-differenced where needed) (' + ccy + ')' + (extra ? ' · ' + extra : ''), 'SEC EDGAR companyfacts', ttmUpd, secURL));
+  } else if (tv && tv.free_cash_flow_ttm != null) {
+    tvFallback = true; issues.push('SEC quarterly cash flow <4Q → provider TTM');
+    fcf = M(fmtMCcy(tv.free_cash_flow_ttm / 1e9, 'USD'), 'TTM · USD', tipHTML('FCF', fmtMCcy(tv.free_cash_flow_ttm / 1e9, 'USD'), 'TTM · USD', 'TTM Free Cash Flow (provider, USD)', 'TradingView', 'latest session', tvURL));
   } else {
-    issues.push('no margin period');
-    gm = NA_CELL('Gross Margin', 'Gross Profit / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
-    nm = NA_CELL('Net Margin', 'Net Income / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
-  }
-  const fcfO = sec ? fyFCF(sec) : null;
-  if (fcfO) {
-    fcf = M(fmtMCcy(fcfO.val / 1e9, ccy), fcfO.frame + ' · ' + ccy, tipHTML('FCF', fmtMCcy(fcfO.val / 1e9, ccy), fcfO.frame, 'Operating Cash Flow − Capital Expenditure, same FY frame (' + ccy + ')', 'SEC EDGAR', (fcfO.filed || '').slice(0, 10)));
-  } else {
-    issues.push('no FCF period');
-    fcf = NA_CELL('FCF', 'Operating Cash Flow − Capital Expenditure', 'SEC EDGAR', 'Unable to retrieve verified data.');
+    issues.push('no OCF/CapEx');
+    fcf = NA_CELL('FCF', 'TTM Operating Cash Flow − TTM Capital Expenditures', 'SEC EDGAR + TradingView', 'DATA UNAVAILABLE');
   }
   /* ---- P/E (Trailing): live price ÷ TTM diluted EPS; N/A when EPS ≤ 0 ---- */
-  const eps = tv && tv.earnings_per_share_diluted_ttm != null ? { v: tv.earnings_per_share_diluted_ttm, src: 'TradingView' }
-    : (sec && sec.epsTTM ? { v: sec.epsTTM.val, src: 'SEC EDGAR (4Q sum)' } : null);
-  let pe;
+  const eps = tv && tv.earnings_per_share_diluted_ttm != null ? { v: tv.earnings_per_share_diluted_ttm, src: 'TradingView TTM diluted EPS', url: tvURL }
+    : (epsT ? { v: epsT.sum, src: 'SEC EDGAR (quarterly diluted EPS sum, approx)', url: secURL } : null);
+  let pe, peVal = null;
   if (price != null && eps && eps.v > 0) {
     const v = price / eps.v;
     if (!isFinite(v) || v <= 0) issues.push('P/E math invalid');
-    pe = M(fmtN(v, 1), 'TTM', tipHTML('P/E (TTM)', fmtN(v, 1), 'TTM', 'Trailing P/E = live price ÷ TTM diluted EPS ($' + fmtN(eps.v, 2) + ', ' + eps.src + ')', 'Calculated', pStamp));
+    else peVal = v;
+    pe = M(fmtN(v, 1), 'TTM', tipHTML('P/E (TTM)', fmtN(v, 1), 'TTM', 'Trailing P/E = live price ÷ TTM diluted EPS ($' + fmtN(eps.v, 2) + ', ' + eps.src + ')', 'Calculated', pStamp, eps.url));
   } else {
     if (!(eps && eps.v > 0)) issues.push('EPS ≤ 0 or missing → P/E N/A');
-    pe = NA_CELL('P/E (TTM)', 'Trailing P/E = live price ÷ TTM diluted EPS', 'TradingView + SEC EDGAR', eps && eps.v <= 0 ? 'EPS ≤ 0' : 'Unable to retrieve verified data.');
+    pe = NA_CELL('P/E (TTM)', 'Trailing P/E = live price ÷ TTM diluted EPS', 'TradingView + SEC EDGAR', eps && eps.v <= 0 ? 'EPS ≤ 0' : 'DATA UNAVAILABLE');
   }
-  /* ---- status ---- */
-  const hasSEC = !!(revL && revL.val);
+  /* ---- risk model (real data only) ---- */
+  const debt = sec ? (((sec.debtLT && sec.debtLT.val) || 0) + ((sec.debtST && sec.debtST.val) || 0)) : null;
+  const eq = sec && sec.equity ? sec.equity.val : null;
+  const deVal = debt != null && eq ? debt / eq : null;
+  const netMVal = (niT && revT && revT.sum) ? (niT.sum / revT.sum) * 100 : (tv && tv.net_margin_ttm != null ? tv.net_margin_ttm : null);
+  const revBase = (revT && revT.sum) || (tv && tv.total_revenue_ttm) || null;
+  const fcfVal = (ocfT && cxT) ? (ocfT.sum - cxT.sum) : (tv && tv.free_cash_flow_ttm != null ? tv.free_cash_flow_ttm : null);
+  const fcfMVal = (fcfVal != null && revBase) ? (fcfVal / revBase) * 100 : null;
+  const risk = riskModel(peVal, deVal, netMVal, fcfMVal, niCv8(niQ));
+  /* ---- status: MARKET DATA × FUNDAMENTAL DATA + quality ---- */
+  const hasPrice = price != null;
+  const hasTTM = !!(revT && revT.sum);
+  const secAnnualOnly = sec && (sec.revA || []).length && !secQ4;
+  const hasAnyFun = hasTTM || !!secAnnualOnly || (tv && (tv.total_revenue_ttm != null || tv.gross_margin_ttm != null));
+  const mktPart = !hasPrice ? 'UNAVAILABLE' : 'LATEST CLOSE' + (pSrc === 'Stooq' ? ' (delayed)' : '');
+  const funPart = (revT && revT.g != null && !tvFallback) ? 'LATEST TTM' : hasAnyFun ? (secAnnualOnly && !tvFallback ? 'LATEST FILING' : 'LATEST TTM') : 'UNAVAILABLE';
   let status, reason;
-  if (price == null && !hasSEC && !tv) { status = 'ERROR'; reason = 'Unable to retrieve verified data.'; }
-  else {
+  const lastUpdTxt = lastUpdate ? (' Last successful update: ' + new Date(lastUpdate).toLocaleString('th-TH') + '.') : '';
+  if (!hasPrice && !hasAnyFun && !tv) {
+    status = 'ERROR'; reason = 'DATA UNAVAILABLE — Unable to retrieve verified data.' + lastUpdTxt;
+  } else {
     let staleWhy = '';
     if (q && q.date) {
       const age = (Date.now() - new Date(q.date + 'T00:00:00Z').getTime()) / 864e5;
       if (age > 5) staleWhy = 'Price session ' + q.date + ' is > 5 days old.';
     }
-    if (!staleWhy && revL && revL.end) {
-      const ageM = (Date.now() - new Date(revL.end).getTime()) / 2592e6;
-      if (ageM > 18) staleWhy = 'Latest FY ended ' + revL.end + ' (> 18 mo).';
+    if (!staleWhy && revT && revT.end) {
+      const ageD = (Date.now() - new Date(revT.end).getTime()) / 864e5;
+      if (ageD > 180) staleWhy = 'TTM ended ' + String(revT.end).slice(0, 10) + ' (> 6 mo).';
     }
+    const anyCached = tvCached || qCached || secCached;
     if (staleWhy) { status = 'STALE'; reason = staleWhy; }
-    else if (price != null && hasSEC) { status = 'VERIFIED'; reason = 'Live price + SEC ' + revL.frame + ' validated.'; }
-    else { status = 'DELAYED'; reason = 'Live price; fundamentals partial (TTM provider mix).'; }
+    else if (anyCached) { status = 'CACHED'; reason = 'Served from cache within tolerance.' + lastUpdTxt; }
+    else if (tvFallback || disc.length || !hasTTM) { status = 'LOW'; reason = 'Single-source / partial TTM coverage' + (disc.length ? ' · ⚠ ' + disc.join(', ') : '') + '.'; }
+    else { status = 'VERIFIED'; reason = 'Live price + SEC TTM ' + ttmPer + ' validated.'; }
+    if (issues.length) reason += ' Checks: ' + issues.join('; ');
   }
-  if (issues.length && status === 'VERIFIED' && (price == null || !hasSEC)) status = 'DELAYED';
   return {
-    t, status, reason: reason + (issues.length ? ' Checks: ' + issues.join('; ') : ''),
-    price: M(price != null ? fmt$(price) + (chg != null ? ' <span class="small" style="color:' + (chg >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (chg >= 0 ? '▲' : '▼') + ' ' + fmtN(Math.abs(chg), 2) + '%</span>' : '') : null, pStamp, tipHTML('Price', price != null ? fmt$(price) : 'N/A', pStamp, 'Latest available market price (delayed session)', pSrc || 'N/A', pStamp)),
-    revG, niG, gm, nm, fcf, pe, fcfCcy: ccy, risk: SEED[t].status.r[0],
+    t, status, reason: mktPart + ' · ' + funPart + '. ' + reason,
+    price: M(price != null ? fmt$(price) + (chg != null ? ' <span class="small" style="color:' + (chg >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (chg >= 0 ? '▲' : '▼') + ' ' + fmtN(Math.abs(chg), 2) + '%</span>' : '') : null, pStamp, tipHTML('Price', price != null ? fmt$(price) : 'N/A', pStamp, 'Latest available market session close (delayed, never called real-time unless streaming)', pSrc || 'N/A', pStamp, pSrc === 'Stooq' ? 'https://stooq.com' : tvURL)),
+    revG, niG, gm, nm, fcf, pe, fcfCcy: ccy, risk,
   };
 }
 function trackCell(m) {
@@ -621,9 +742,11 @@ function trackCell(m) {
   return '<td class="num" title="' + esc(m.tip || '') + '">' + m.v + (m.period ? '<div class="muted small" style="font-weight:400;font-size:11px">' + esc(m.period) + '</div>' : '') + '</td>';
 }
 function trackRowHTML(r) {
+  if (r.unknown) return '<tr><td><b>' + esc(r.t) + '</b></td><td colspan="8" style="color:var(--red);font-weight:700">UNKNOWN TICKER — cannot resolve to a company/security. Metrics hidden; no data invented.</td><td>' + stBadgeHTML('ERROR', r.reason) + '</td><td></td></tr>';
+  const rk = r.risk && r.risk.label ? r.risk : { label: String(r.risk || '—'), cls: 'b-gray', tip: '' };
   return '<tr><td><b><a href="#/stock/' + r.t + '">' + r.t + '</a></b></td>'
     + trackCell(r.price) + trackCell(r.revG) + trackCell(r.niG) + trackCell(r.gm) + trackCell(r.nm) + trackCell(r.fcf) + trackCell(r.pe)
-    + '<td>' + esc(r.risk) + '</td>'
+    + '<td><span class="badge ' + rk.cls + '" title="' + esc(rk.tip || rk.label) + '">' + esc(rk.label) + '</span></td>'
     + '<td>' + stBadgeHTML(r.status, r.reason) + '</td>'
     + '<td><button class="btn ghost sm" data-watch="' + r.t + '">ลบออก</button></td></tr>';
 }
@@ -636,7 +759,7 @@ async function fillTrackingTable() {
   } else {
     const rows = await Promise.all(list.map(async (t) => {
       try { return await getTrackingRow(t); }
-      catch (e) { return { t, status: 'ERROR', reason: 'Unable to retrieve verified data (' + e.message + ')', price: { v: null, tip: 'DATA ERROR' }, revG: { v: null }, niG: { v: null }, gm: { v: null }, nm: { v: null }, fcf: { v: null }, pe: { v: null }, risk: SEED[t].status.r[0] }; }
+      catch (e) { return { t, status: 'ERROR', reason: 'DATA UNAVAILABLE (' + e.message + ')', price: { v: null, tip: 'DATA ERROR' }, revG: { v: null }, niG: { v: null }, gm: { v: null }, nm: { v: null }, fcf: { v: null }, pe: { v: null }, risk: { label: 'RISK MODEL UNAVAILABLE', cls: 'b-gray', tip: 'No data.' } }; }
     }));
     if (!$('#trackBody')) return;
     tb.innerHTML = rows.map(trackRowHTML).join('');
@@ -644,12 +767,12 @@ async function fillTrackingTable() {
   const ts = $('#trackTs');
   if (ts) {
     ts.innerHTML = DataService.liveOn()
-      ? '<span class="muted small">Price: Stooq/TradingView (≤15 min cache) · Fundamentals: SEC EDGAR FY + TV TTM (≤24 h cache) · Hover cells for source/period</span>'
+      ? '<span class="muted small">All metrics TTM · Price: LATEST CLOSE (Stooq delayed / TV) · Fundamentals: SEC quarterly TTM + TV · Hover cells for period/source/URL</span>'
       : '<span class="badge b-gray">⚪ DEMO DATA</span> <span class="muted small">Demo provider — switch to Live in Settings</span>';
   }
   const src = $('#trackSrc');
   if (src) {
-    src.innerHTML = '<span class="tag-fact">ข้อเท็จจริง</span>ที่มา: SEC EDGAR (งบ FY) + TradingView (ราคา/TTM) · ASML financials in EUR, ADR price in USD · P/E = Trailing (live price ÷ TTM diluted EPS; N/A if EPS ≤ 0) · FCF = OCF − CapEx · <span class="badge b-green">VERIFIED</span> = ราคาสด + งบ SEC ตรงงวด · <span class="badge b-yellow">DELAYED</span> = ราคาสดแต่งบบางส่วน · <span class="badge b-orange">STALE</span> = ข้อมูลเก่า · <span class="badge b-red">DATA ERROR</span> = ดึงไม่ได้ (N/A)';
+    src.innerHTML = '<span class="tag-fact">ข้อเท็จจริง</span>ทุก metric เป็น TTM (SEC quarterly sums → TV fallback, ป้ายบอกทุกช่อง) · P/E = Trailing (live ÷ TTM diluted EPS; N/A if EPS ≤ 0) · FCF = TTM OCF − TTM CapEx (ติดลบโชว์จริง) · ASML financials in EUR, ADR price in USD · <span class="badge b-green">VERIFIED</span> ราคาสด+TTM ตรง · <span class="badge b-yellow">LOW CONFIDENCE</span> ข้อมูลบางส่วน · <span class="badge b-orange">STALE/CACHED</span> ข้อมูลเก่า/แคชพร้อมวันอัปเดต · <span class="badge b-red">DATA ERROR</span> ดึงไม่ได้ (N/A) · เสี่ยง = risk model จากข้อมูลจริง (hover ดูสูตร) ไม่ใช่ AI เดา';
   }
   $$('#trackBody [data-watch]').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleWatch(b.dataset.watch); });
 }
@@ -657,14 +780,14 @@ function demoTrackRow(t) {
   const s = SEED[t];
   const tip = 'DEMO DATA — illustrative only. Switch provider to Live in Settings.';
   const c = (v, p) => ({ v, period: 'DEMO', tip });
-  return { t, status: 'DEMO', reason: tip, price: c(fmt$(s.price)), revG: c(fmtPct(s.revGrowth)), niG: c(fmtPct(s.epsGrowth)), gm: c(fmtN(s.grossM) + '%'), nm: c(fmtN(s.netM) + '%'), fcf: c(fmtB(s.fcf)), pe: c(fmtN(s.pe)), risk: s.status.r[0] };
+  return { t, status: 'DEMO', reason: tip, price: c(fmt$(s.price)), revG: c(fmtPct(s.revGrowth)), niG: c(fmtPct(s.epsGrowth)), gm: c(fmtN(s.grossM) + '%'), nm: c(fmtN(s.netM) + '%'), fcf: c(fmtB(s.fcf)), pe: c(fmtN(s.pe)), risk: { label: s.status.r[0] + ' (demo)', cls: 'b-gray', tip } };
 }
 /* ---------------- TRADINGVIEW snapshot (public scanner API, real data) -- */
-const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'total_revenue_yoy_growth_ttm', 'earnings_per_share_diluted_yoy_growth_ttm', 'net_income_ttm', 'net_income_yoy_growth_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
+const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'total_revenue_yoy_growth_ttm', 'earnings_per_share_diluted_yoy_growth_ttm', 'net_income_ttm', 'net_income_yoy_growth_ttm', 'gross_profit_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'ebitda_ttm', 'free_cash_flow_ttm', 'capital_expenditures_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
 const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', SKHY: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ' };
 async function getTVSnapshot(t, force) {
   if (!force) {
-    const cached = LiveCache.get('tv2_' + t, 15 * 60e3);
+    const cached = LiveCache.get('tv3_' + t, 15 * 60e3);
     if (cached) return cached;
   }
   const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + (TV_EX[t] || 'NASDAQ') + ':' + t + '&fields=' + TV_COLS.join(','), 12000);
@@ -674,7 +797,7 @@ async function getTVSnapshot(t, force) {
        fallback is more honest than the wrong logo. */
     if (j.logoid && !(t === 'SKHY' && /telecom/i.test(j.logoid))) { const m = store.get('asrt_logos', {}); m[t] = j.logoid; store.set('asrt_logos', m); }
   } catch (_) {}
-  LiveCache.set('tv2_' + t, j);
+  LiveCache.set('tv3_' + t, j);
   return j;
 }
 function tvRating(v) {
