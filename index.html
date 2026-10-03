@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Stock Research Terminal — แดชบอร์ดวิเคราะห์หุ้นระยะยาว</title>
+<meta name="description" content="เทอร์มินัลวิเคราะห์หุ้นสำหรับนักลงทุนระยะยาว แยกข้อเท็จจริง / การคำนวณ / การตีความ / ข้อสมมติชัดเจน ข้อมูล demo ระบุป้ายกำกับไว้">
+<meta name="theme-color" content="#060b16">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#view">ข้ามไปเนื้อหา</a>
+<div class="app">
+  <aside class="sidebar" aria-label="เมนูหลัก">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">◈</div>
+      <div><div class="brand-name">AI STOCK</div><div class="brand-sub">RESEARCH TERMINAL</div></div>
+    </div>
+    <div class="demo-pill" id="feedPill" title="Live: ราคาดีเลย์จาก Stooq + งบจริงจาก SEC EDGAR | Demo: ตัวเลขจำลอง">LIVE DATA</div>
+    <nav class="nav" id="mainNav" aria-label="หมวดต่างๆ">
+      <a href="#/" data-nav="dashboard">◎ แดชบอร์ด</a>
+      <a href="#/portfolio" data-nav="portfolio">💼 พอร์ตของฉัน</a>
+      <a href="#/rankings" data-nav="rankings">🏆 จัดอันดับ</a>
+      <a href="#/compare" data-nav="compare">◫ เปรียบเทียบ</a>
+      <a href="#/valuation" data-nav="valuation">ƒ ประเมินมูลค่า</a>
+      <a href="#/industry" data-nav="industry">⬡ อุตสาหกรรม</a>
+      <a href="#/tools" data-nav="tools">⚙ เครื่องมือ</a>
+      <a href="#/journal" data-nav="journal">✎ บันทึกการลงทุน</a>
+      <a href="#/news" data-nav="news">📰 ข่าว</a>
+      <a href="#/settings" data-nav="settings">⚲ ตั้งค่า</a>
+    </nav>
+    <div class="side-foot">
+      <button id="themeBtn" class="btn ghost sm" aria-label="สลับโหมดมืดสว่าง">◐ ธีม</button>
+      <div class="side-note">ข้อเท็จจริง / การคำนวณ /<br>การตีความ / ข้อสมมติ</div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <button id="menuBtn" class="icon-btn only-mobile" aria-label="เปิดเมนู">☰</button>
+      <div class="search-wrap">
+        <span class="search-ico" aria-hidden="true">⌕</span>
+        <input id="globalSearch" type="search" placeholder="ค้นหา NVDA · NVIDIA · Micron · Semiconductors…  ( / )" aria-label="ค้นหาหุ้น" autocomplete="off">
+        <div id="searchResults" class="search-results" role="listbox" aria-label="ผลการค้นหา"></div>
+      </div>
+      <div class="top-right">
+        <span id="marketStatus" class="market-status" title="สถานะผู้ให้บริการข้อมูล"><span class="pulse"></span> ข้อมูล DEMO</span>
+        <button id="themeBtn2" class="icon-btn" aria-label="สลับธีม">◐</button>
+      </div>
+    </header>
+
+    <main id="view" tabindex="-1" aria-live="polite"></main>
+
+    <section class="source-panel" aria-label="แหล่งข้อมูล">
+      <div class="wrap-narrow">
+        <h4>แหล่งข้อมูลและความถูกต้อง</h4>
+        <div class="src-grid">
+          <div><b>Tier 1</b><span>IR บริษัท · เอกสารยื่น SEC · รายงานประจำปี/รายไตรมาส</span></div>
+          <div><b>Tier 2</b><span>Nasdaq · NYSE · SEC · Macrotrends · CompaniesMarketCap · StockAnalysis · Yahoo · Google Finance</span></div>
+          <div><b>Tier 3</b><span>Reuters · Bloomberg · CNBC · FT · WSJ — ใช้เป็นบริบทเท่านั้น ไม่แทนงบการเงิน</span></div>
+        </div>
+        <p class="muted small" id="freshLine">ราคาตลาด: Stooq (ดีเลย์) · งบการเงิน: ข้อมูลยื่นจริงจาก SEC EDGAR · บทวิเคราะห์เชิงคุณภาพ: โครง demo · อัปเดตสดทุกครั้งที่เข้าชม</p>
+      </div>
+    </section>
+    <footer class="footer">
+      <p>แดชบอร์ดนี้เพื่อการค้นคว้าและศึกษาเท่านั้น ไม่ใช่คำแนะนำการลงทุน และไม่รับประกันผลตอบแทนในอนาคต ผลตอบแทนในอดีตไม่ได้การันตีผลในอนาคต</p>
+      <p class="muted small">ข้อมูลต้องมาก่อน วิเคราะห์ทีหลัง ออกแบบทีหลังสุด · ไม่มีคำสั่งซื้อ/ขาย · สถานะต่างๆ เป็นข้อมูลประกอบเท่านั้น</p>
+    </footer>
+    <nav class="bottomnav only-mobile" aria-label="Mobile">
+      <a href="#/" data-nav="dashboard">◎</a><a href="#/compare" data-nav="compare">◫</a>
+      <a href="#/valuation" data-nav="valuation">ƒ</a><a href="#/tools" data-nav="tools">⚙</a>
+      <a href="#/journal" data-nav="journal">✎</a>
+    </nav>
+  </div>
+</div>
+<button id="chatFab" class="chat-fab" aria-label="เปิดแชทผู้ช่วยวิจัย" aria-haspopup="dialog" title="ถาม-ตอบข้อมูลหุ้น">💬</button>
+<section id="chatPanel" class="chat-panel" role="dialog" aria-label="ผู้ช่วยวิจัย" hidden>
+  <header class="chat-head"><div><b>🔎 ผู้ช่วยวิจัย</b><div class="muted small">ตอบจากข้อมูลจริงในเทอร์มินัล · ไม่เดาตัวเลข</div></div><button id="chatClose" class="icon-btn" aria-label="ปิดแชท">✕</button></header>
+  <div id="chatMsgs" class="chat-msgs" aria-live="polite"></div>
+  <div id="chatChips" class="chat-chips" aria-label="คำถามแนะนำ"></div>
+  <form id="chatForm" class="chat-form"><input id="chatInput" type="text" placeholder="ถามเลย เช่น “สรุป NVDA” / “เทียบ MU vs AMD”" aria-label="ถามเรื่องหุ้น" autocomplete="off" maxlength="300"><button class="btn sm" type="submit">ส่ง</button></form>
+  <div class="muted small chat-foot">เพื่อการศึกษาเท่านั้น · ไม่ใช่คำแนะนำลงทุน</div>
+</section>
+<script src="app.js"></script>
+</body>
+</html>
