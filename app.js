@@ -129,6 +129,162 @@ const SEED = {
     scen: { bull: { rev: '+14% CAGR 3Y', margin: 'OPM ~14%', note: 'AWS + ads mix.' }, base: { rev: '+10% CAGR 3Y', margin: 'OPM ~11%', note: 'Steady.' }, bear: { rev: '+5% CAGR 3Y', margin: 'OPM ~8%', note: 'Consumer drag.' } },
     status: { g: ['📈 มั่นคง', 'b-blue'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟡 ค่อนข้างแพง', 'b-yellow'], r: ['🟢 ต่ำ-กลาง', 'b-green'], q: ['🟢 สูง', 'b-green'] },
     src: 'Amazon Investor Relations (ตัวเลข demo)' },
+  CRWD: { name: 'CrowdStrike Holdings, Inc.', sector: 'Technology', industry: 'Cybersecurity (SaaS)', price: 270.04, mcap: 70.2, revGrowth: 21.5, epsGrowth: 32.0, grossM: 75.8, opM: 8.4, fcf: 1.8, fcfM: 28.5, pe: 82.4, fwdPE: 58.2, peg: 1.8, ps: 17.2, evEbitda: 55.4, pFCF: 39.0, fcfYield: 2.6, hi52: 300.0, lo52: 180.5, divY: 0.0, roe: 12.8, roic: 8.4, netM: 6.2, cash: 3.8, debt: 0.8, vol: 38, cagr5: 28.4,
+    desc: 'Cloud-native endpoint security platform (Falcon) sold as SaaS modules to enterprises; AI-driven threat detection.',
+    segments: [['Subscriptions (Falcon)', 92], ['Professional Services', 8]],
+    geo: [['United States', 68], ['EMEA', 18], ['APAC', 14]],
+    bizModel: 'SaaS subscriptions with land-and-expand module attach; high gross margin, net-new ARR driven.',
+    customers: 'Enterprises, governments, MSSPs',
+    rev5y: [1.5, 2.2, 3.1, 3.9, 4.6], eps5y: [-0.8, -0.4, 0.2, 0.9, 1.4], fcf5y: [0.4, 0.8, 1.1, 1.4, 1.8],
+    moat: [['Network Effect / Data', 'แข็งแกร่ง', 'Threat-graph improves with every endpoint; more customers = better detection.'], ['Switching Cost', 'แข็งแกร่ง', 'Security agent deeply embedded in IT workflows; rip-out is risky.'], ['Brand', 'แข็งแกร่ง', 'Leader in endpoint protection evaluations.']],
+    risks: [['Competition', 'กลาง', 'ผลกระทบกลาง', 'SentinelOne, Palo Alto, Microsoft Defender rivalry.'], ['Outage / trust', 'ต่ำ', 'ผลกระทบสูง', 'Any Falcon outage repeats 2024-style trust damage.'], ['Valuation risk', 'กลาง', 'ผลกระทบกลาง', 'High multiples compress on any ARR miss.']],
+    catalysts: ['Module attach growth', 'Next-gen SIEM + identity', 'Federal deals'],
+    scen: { bull: { rev: '+30% CAGR 3Y', margin: 'OPM ~15%', note: 'Platform consolidation accelerates.' }, base: { rev: '+20% CAGR 3Y', margin: 'OPM ~10%', note: 'Steady ARR growth.' }, bear: { rev: '+8% CAGR 3Y', margin: 'OPM ~4%', note: 'Budget cuts + churn.' } },
+    status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🔴 แพง', 'b-red'], r: ['🟡 กลาง', 'b-yellow'], q: ['🟢 สูง', 'b-green'] },
+    src: 'CrowdStrike Investor Relations (ตัวเลข demo)' },
+  NBIS: { name: 'Nebius Group N.V.', sector: 'Technology', industry: 'AI Cloud Infrastructure', price: 242.81, mcap: 55.4, revGrowth: 112.0, epsGrowth: 45.0, grossM: 42.5, opM: -18.4, fcf: -1.2, fcfM: -35.2, pe: 145.2, fwdPE: 82.5, peg: 1.8, ps: 16.4, evEbitda: 68.2, pFCF: -46.2, fcfYield: -2.2, hi52: 250.4, lo52: 62.8, divY: 0.0, roe: -4.2, roic: -3.1, netM: -12.4, cash: 2.8, debt: 0.4, vol: 65, cagr5: 48.2,
+    desc: 'AI-native cloud (GPU clusters) for foundation-model training and inference; ex-Yandex infra team, relisted Oct 2024.',
+    segments: [['AI Cloud / Compute', 88], ['Other (Toloka/TripleTen)', 12]],
+    geo: [['United States', 45], ['Europe', 40], ['Other', 15]],
+    bizModel: 'Capacity-led growth: build GPU datacenters, sell reserved compute to AI labs and enterprises.',
+    customers: 'AI labs, hyperscalers overflow, enterprises',
+    rev5y: [0.2, 0.5, 0.9, 1.8, 3.4], eps5y: [-0.8, -0.6, -0.4, -0.1, 0.3], fcf5y: [-0.8, -1.1, -1.4, -1.3, -1.2],
+    moat: [['Capacity / Execution', 'ปานกลาง', 'Early GPU capacity + energy access in a supply-constrained market.'], ['Talent', 'แข็งแกร่ง', 'Deep infra engineering bench from Yandex years.']],
+    risks: [['Dilution / capex', 'สูง', 'ผลกระทบสูง', 'Datacenter buildouts need constant equity + debt funding.'], ['Customer concentration', 'สูง', 'ผลกระทบสูง', 'Few large AI customers dominate revenue.'], ['Short listed history', 'กลาง', 'ผลกระทบกลาง', 'Relisted 2024; limited track record as NBIS.']],
+    catalysts: ['New datacenter capacity online', 'Multi-year AI lab contracts', 'Inference demand ramp'],
+    scen: { bull: { rev: '+90% CAGR 3Y', margin: 'OPM ~15%', note: 'Capacity sells out at premium pricing.' }, base: { rev: '+45% CAGR 3Y', margin: 'OPM ~0%', note: 'Steady fill-up.' }, bear: { rev: '+10% CAGR 3Y', margin: 'OPM ~-20%', note: 'GPU price war + funding crunch.' } },
+    status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟡 เผาเงินเพื่อโต', 'b-yellow'], v: ['🔴 แพงมาก', 'b-red'], r: ['🔴 สูง', 'b-red'], q: ['🟡 กลาง', 'b-yellow'] },
+    src: 'Nebius Investor Relations (ตัวเลข demo)' },
+  LITE: { name: 'Lumentum Holdings Inc.', sector: 'Technology', industry: 'Optical / Photonic Components', price: 1085.42, mcap: 82.4, revGrowth: 48.5, epsGrowth: 62.0, grossM: 36.4, opM: 12.8, fcf: 0.4, fcfM: 14.2, pe: 68.2, fwdPE: 38.4, peg: 1.1, ps: 12.8, evEbitda: 28.4, pFCF: 58.2, fcfYield: 1.7, hi52: 1100.0, lo52: 250.8, divY: 0.0, roe: 8.4, roic: 6.2, netM: 9.8, cash: 1.2, debt: 2.4, vol: 60, cagr5: 32.4,
+    desc: 'Optical transceivers and photonic chips for AI datacenter interconnects; key optical supplier for scale-up networks.',
+    segments: [['Optical Communications', 88], ['Lasers / Other', 12]],
+    geo: [['Americas', 55], ['Asia-Pacific', 35], ['EMEA', 10]],
+    bizModel: 'Component supplier into datacenter optical transceiver cycle; pricing tied to 800G/1.6T ramps.',
+    customers: 'Cloud operators, optical module makers, telecom',
+    rev5y: [1.4, 1.8, 1.5, 2.4, 3.8], eps5y: [2.1, 3.4, 0.8, 2.2, 4.8], fcf5y: [0.2, 0.3, -0.1, 0.2, 0.4],
+    moat: [['Technology', 'แข็งแกร่ง', 'High-power lasers + photonic integration for 800G/1.6T optics.'], ['Qualification', 'แข็งแกร่ง', 'Qualified with cloud supply chains; re-qualification is slow.']],
+    risks: [['Cyclicality', 'สูง', 'ผลกระทบสูง', 'Optical capex cycles swing orders sharply.'], ['Customer concentration', 'สูง', 'ผลกระทบสูง', 'Few cloud buyers dominate demand.'], ['Valuation after run-up', 'สูง', 'ผลกระทบกลาง', 'Price already reflects strong optical demand.']],
+    catalysts: ['1.6T optical ramp', 'Datacenter interconnect demand', 'Margin recovery on mix'],
+    scen: { bull: { rev: '+40% CAGR 3Y', margin: 'OPM ~20%', note: 'Optical supercycle holds.' }, base: { rev: '+20% CAGR 3Y', margin: 'OPM ~13%', note: 'Normal cycle.' }, bear: { rev: '-5% CAGR 3Y', margin: 'OPM ~5%', note: 'Order digestion.' } },
+    status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟡 วัฏจักร', 'b-yellow'], v: ['🔴 แพง', 'b-red'], r: ['🟠 กลาง-สูง', 'b-orange'], q: ['🟢 สูง', 'b-green'] },
+    src: 'Lumentum Investor Relations (ตัวเลข demo)' },
+  VRT: { name: 'Vertiv Holdings Co', sector: 'Industrials', industry: 'Data-Center Power & Cooling', price: 175.2, mcap: 45.8, revGrowth: 16.4, epsGrowth: 28.5, grossM: 34.8, opM: 15.2, fcf: 1.1, fcfM: 11.4, pe: 38.4, fwdPE: 28.2, peg: 1.3, ps: 4.8, evEbitda: 22.4, pFCF: 41.6, fcfYield: 2.4, hi52: 200.5, lo52: 110.2, divY: 0.2, roe: 28.4, roic: 16.2, netM: 10.4, cash: 0.9, debt: 3.2, vol: 35, cagr5: 24.8,
+    desc: 'Power, cooling and racks for datacenters; direct picks-and-shovels exposure to AI datacenter buildouts.',
+    segments: [['Power Management', 42], ['Thermal / Cooling', 38], ['Racks & Services', 20]],
+    geo: [['Americas', 58], ['EMEA', 24], ['APAC', 18]],
+    bizModel: 'Equipment + lifecycle services sold to colo/hyperscale builders; backlog-driven revenue.',
+    customers: 'Hyperscalers, colocation providers, enterprises',
+    rev5y: [5.0, 5.7, 6.9, 8.0, 9.6], eps5y: [0.8, 1.1, 1.6, 2.1, 2.8], fcf5y: [0.3, 0.5, 0.7, 0.9, 1.1],
+    moat: [['Installed Base / Service', 'แข็งแกร่ง', 'Service network + retrofit lock-in with operators.'], ['Scale', 'ปานกลาง-แข็งแกร่ง', 'Global manufacturing and channel for power/cooling.']],
+    risks: [['Datacenter cycle', 'กลาง', 'ผลกระทบกลาง', 'Buildout pauses hit orders.'], ['Competition', 'กลาง', 'ผลกระทบกลาง', 'Schneider, Eaton, nVent rivalry on price.'], ['Input costs', 'ต่ำ', 'ผลกระทบกลาง', 'Copper/steel cost pass-through lags.']],
+    catalysts: ['Liquid-cooling ramp for AI racks', 'Backlog conversion', 'Service margin expansion'],
+    scen: { bull: { rev: '+20% CAGR 3Y', margin: 'OPM ~19%', note: 'AI datacenter supercycle.' }, base: { rev: '+12% CAGR 3Y', margin: 'OPM ~15%', note: 'Steady buildout.' }, bear: { rev: '+3% CAGR 3Y', margin: 'OPM ~11%', note: 'Capex pause.' } },
+    status: { g: ['📈 มั่นคง', 'b-blue'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟡 ค่อนข้างแพง', 'b-yellow'], r: ['🟡 กลาง', 'b-yellow'], q: ['🟢 สูง', 'b-green'] },
+    src: 'Vertiv Investor Relations (ตัวเลข demo)' },
+  AMAT: { name: 'Applied Materials, Inc.', sector: 'Technology', industry: 'Semiconductor Equipment', price: 285.4, mcap: 228.5, revGrowth: 9.8, epsGrowth: 12.4, grossM: 47.2, opM: 29.8, fcf: 7.8, fcfM: 26.4, pe: 26.4, fwdPE: 22.8, peg: 1.8, ps: 7.8, evEbitda: 18.2, pFCF: 29.3, fcfYield: 3.4, hi52: 320.8, lo52: 180.4, divY: 0.6, roe: 32.4, roic: 24.8, netM: 26.2, cash: 8.4, debt: 5.2, vol: 30, cagr5: 18.4,
+    desc: 'Largest wafer-fab equipment maker (deposition, etch, inspection); sells into TSMC/Intel/Samsung/memory capex.',
+    segments: [['Semiconductor Systems', 74], ['Applied Global Services', 20], ['Display', 6]],
+    geo: [['Taiwan', 28], ['China', 24], ['Korea', 18], ['US/EU/Japan', 30]],
+    bizModel: 'Equipment sales + recurring services/upgrades; R&D co-development with leading fabs.',
+    customers: 'TSMC, Samsung, Intel, Micron, SK Hynix',
+    rev5y: [23.1, 25.8, 26.5, 27.2, 29.5], eps5y: [6.2, 7.4, 7.8, 8.4, 9.2], fcf5y: [5.2, 6.4, 5.8, 6.8, 7.8],
+    moat: [['Technology breadth', 'แข็งแกร่งมาก', 'Broadest process-tool portfolio; materials engineering lead.'], ['Service lock-in', 'แข็งแกร่ง', 'Installed base serviced for decades.']],
+    risks: [['Capex cyclicality', 'กลาง', 'ผลกระทบกลาง', 'Memory/logic capex swings.'], ['Export control', 'สูง', 'ผลกระทบสูง', 'China shipment restrictions on advanced tools.'], ['Customer concentration', 'กลาง', 'ผลกระทบกลาง', 'Top foundries dominate orders.']],
+    catalysts: ['2nm/GAA equipment ramps', 'HBM-related equipment demand', 'Services growth'],
+    scen: { bull: { rev: '+15% CAGR 3Y', margin: 'OPM ~32%', note: 'Fab expansion wave.' }, base: { rev: '+9% CAGR 3Y', margin: 'OPM ~29%', note: 'Steady capex.' }, bear: { rev: '+2% CAGR 3Y', margin: 'OPM ~25%', note: 'Capex downcycle.' } },
+    status: { g: ['📈 มั่นคง', 'b-blue'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟢 เหมาะสม', 'b-green'], r: ['🟡 กลาง', 'b-yellow'], q: ['🟢 สูง', 'b-green'] },
+    src: 'Applied Materials Investor Relations (ตัวเลข demo)' },
+  AAOI: { name: 'Applied Optoelectronics, Inc.', sector: 'Technology', industry: 'Optical Transceivers', price: 115.59, mcap: 6.2, revGrowth: 58.4, epsGrowth: 88.2, grossM: 30.2, opM: 6.4, fcf: 0.1, fcfM: 8.4, pe: 52.4, fwdPE: 28.4, peg: 0.9, ps: 5.2, evEbitda: 24.8, pFCF: 62.0, fcfYield: 1.6, hi52: 120.4, lo52: 35.2, divY: 0.0, roe: 9.8, roic: 6.4, netM: 5.2, cash: 0.2, debt: 0.4, vol: 70, cagr5: 18.2,
+    desc: 'Optical transceivers (400G/800G) for datacenter interconnects; small-cap optical leverage on AI networking.',
+    segments: [['Datacenter Transceivers', 82], ['CATV / Other', 18]],
+    geo: [['Americas', 72], ['Asia', 22], ['Other', 6]],
+    bizModel: 'Vertically integrated laser + transceiver manufacturing; volume ramps on cloud qualifications.',
+    customers: 'Hyperscalers, datacenter operators',
+    rev5y: [0.3, 0.4, 0.5, 0.8, 1.2], eps5y: [-0.4, -0.2, 0.1, 0.4, 0.9], fcf5y: [-0.1, 0.0, 0.0, 0.1, 0.1],
+    moat: [['Vertical integration', 'ปานกลาง', 'In-house lasers cut cost vs fabless peers.'], ['Qualification', 'ปานกลาง', 'Qualified 800G SKUs with cloud buyers.']],
+    risks: [['Small-cap volatility', 'สูง', 'ผลกระทบสูง', 'Thin margins; single-order swings.'], ['Customer concentration', 'สูง', 'ผลกระทบสูง', 'Few cloud buyers.'], ['Price erosion', 'กลาง', 'ผลกระทบกลาง', 'Transceiver ASPs fall each generation.']],
+    catalysts: ['800G volume ramp', 'New cloud qualifications', 'Margin lift on scale'],
+    scen: { bull: { rev: '+50% CAGR 3Y', margin: 'OPM ~15%', note: 'Optical share gains.' }, base: { rev: '+25% CAGR 3Y', margin: 'OPM ~8%', note: 'Steady ramp.' }, bear: { rev: '+0% CAGR 3Y', margin: 'OPM ~2%', note: 'ASP collapse.' } },
+    status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟡 ดีขึ้น', 'b-yellow'], v: ['🟡 ค่อนข้างแพง', 'b-yellow'], r: ['🔴 สูง', 'b-red'], q: ['🟡 กลาง', 'b-yellow'] },
+    src: 'Applied Optoelectronics Investor Relations (ตัวเลข demo)' },
+  SMH: { name: 'VanEck Semiconductor ETF', sector: 'ETF', industry: 'Semiconductor ETF (concentrated)', price: 606.56, mcap: 73.9, revGrowth: 24.5, epsGrowth: 28.2, grossM: 55.2, opM: 30.4, fcf: 0.3, fcfM: 12.4, pe: 28.4, fwdPE: 24.2, peg: 1.0, ps: 8.2, evEbitda: 18.4, pFCF: 32.2, fcfYield: 0.4, hi52: 620.0, lo52: 320.5, divY: 0.3, roe: 28.4, roic: 20.2, netM: 25.4, cash: 1.0, debt: 0.1, vol: 32, cagr5: 28.2, etf: true,
+    desc: 'ETF ถือหุ้นเซมิฯ 25 ตัวแบบกระจุก (NVDA ~18-23% + TSM) — เดิมพัน AI infra ผ่าน mega-cap ชิป ค่าธรรมเนียม 0.35%.',
+    segments: [['NVIDIA', 20], ['TSMC', 10], ['Broadcom/AMD/Micron', 18], ['Equipment (AMAT/LRCX)', 14], ['Other semi', 38]],
+    geo: [['United States', 82], ['Taiwan/Netherlands', 14], ['Other', 4]],
+    bizModel: 'Passive ETF tracking MVIS US Listed Semiconductor 25; market-cap weighted, concentrated.',
+    customers: 'ผู้ถือหน่วย ETF (นักลงทุนรายย่อย/สถาบัน)',
+    rev5y: [28.2, 32.4, 38.5, 52.4, 73.9], eps5y: [180.2, 210.4, 245.8, 320.4, 420.8], fcf5y: [0.1, 0.1, 0.2, 0.2, 0.3],
+    moat: [['Diversification', 'แข็งแกร่ง', 'One ticket = 25 chip makers; no single-stock blowup.'], ['Liquidity', 'แข็งแกร่งมาก', 'AUM ~$74B; tight spreads, easy entry/exit.'], ['Cost', 'ปานกลาง', '0.35% fee — pricier than broad index, fair for sector.']],
+    risks: [['Concentration', 'สูง', 'ผลกระทบสูง', 'NVDA+TSM ~30% — falls with mega-cap chips.'], ['Sector cyclicality', 'สูง', 'ผลกระทบสูง', 'Semi downcycles hit all holdings together.'], ['Overlap', 'กลาง', 'ผลกระทบกลาง', 'ถือ SOXX ด้วย = ซ้ำซ้อนหนัก (NVDA/AVGO/AMD/MU ชุดเดียวกัน).']],
+    catalysts: ['AI capex supercycle', 'Rate cuts lifting multiples', 'HBM/2nm equipment demand'],
+    scen: { bull: { rev: '+25% CAGR 3Y', margin: 'OPM ~32%', note: 'Mega-cap chips keep leading.' }, base: { rev: '+14% CAGR 3Y', margin: 'OPM ~28%', note: 'Normal cycle.' }, bear: { rev: '-5% CAGR 3Y', margin: 'OPM ~22%', note: 'Semi downcycle.' } },
+    status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟡 ค่อนข้างแพง', 'b-yellow'], r: ['🟠 กลาง-สูง', 'b-orange'], q: ['🟢 สูง', 'b-green'] },
+    src: 'VanEck fund facts (ตัวเลข demo — ดู NAV/พอร์ตจริงที่ผู้ออก ETF)' },
+  SOXX: { name: 'iShares Semiconductor ETF', sector: 'ETF', industry: 'Semiconductor ETF (broad)', price: 572.68, mcap: 48.3, revGrowth: 22.4, epsGrowth: 25.8, grossM: 53.4, opM: 28.2, fcf: 0.3, fcfM: 12.8, pe: 26.8, fwdPE: 22.4, peg: 1.0, ps: 7.8, evEbitda: 17.2, pFCF: 30.4, fcfYield: 0.5, hi52: 585.2, lo52: 300.8, divY: 0.5, roe: 26.2, roic: 18.4, netM: 23.8, cash: 1.0, debt: 0.1, vol: 31, cagr5: 25.4, etf: true,
+    desc: 'ETF ถือหุ้นเซมิฯ ~30 ตัวแบบกระจายกว่า SMH (NVDA ~7-9%, ให้น้ำหนัก MU/AMD สูงกว่า) ค่าธรรมเนียม ~0.33%.',
+    segments: [['Micron/AMD/Broadcom', 25], ['NVIDIA', 8], ['Equipment (AMAT/KLAC/LRCX)', 16], ['Other semi', 51]],
+    geo: [['United States', 96], ['Other', 4]],
+    bizModel: 'Passive ETF tracking ICE Semiconductor Index; capped weighting = broader than SMH.',
+    customers: 'ผู้ถือหน่วย ETF (นักลงทุนรายย่อย/สถาบัน)',
+    rev5y: [22.4, 26.8, 30.2, 38.4, 48.3], eps5y: [170.4, 198.2, 228.4, 295.2, 385.4], fcf5y: [0.1, 0.1, 0.2, 0.2, 0.3],
+    moat: [['Diversification', 'แข็งแกร่งมาก', '30 names, capped weights — less NVDA dependence than SMH.'], ['Liquidity', 'แข็งแกร่งมาก', 'AUM ~$48B; tight spreads.'], ['Cost', 'ปานกลาง', '0.33% fee.']],
+    risks: [['Sector cyclicality', 'สูง', 'ผลกระทบสูง', 'Semi downcycles hit all holdings together.'], ['Overlap', 'กลาง', 'ผลกระทบกลาง', 'ถือ SMH ด้วย = ซ้ำซ้อนหนัก เลือกตัวเดียวพอ.'], ['US-only', 'ต่ำ', 'ผลกระทบต่ำ', 'No TSMC direct exposure (US-listed only).']],
+    catalysts: ['Broad semi recovery (memory + analog)', 'AI capex supercycle', 'Rate cuts lifting multiples'],
+    scen: { bull: { rev: '+24% CAGR 3Y', margin: 'OPM ~30%', note: 'Broad chip recovery.' }, base: { rev: '+13% CAGR 3Y', margin: 'OPM ~26%', note: 'Normal cycle.' }, bear: { rev: '-5% CAGR 3Y', margin: 'OPM ~20%', note: 'Semi downcycle.' } },
+    status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟡 ค่อนข้างแพง', 'b-yellow'], r: ['🟠 กลาง-สูง', 'b-orange'], q: ['🟢 สูง', 'b-green'] },
+    src: 'iShares fund facts (ตัวเลข demo — ดู NAV/พอร์ตจริงที่ผู้ออก ETF)' },
+  VTI: { name: 'Vanguard Total US Stock Market ETF', sector: 'ETF', industry: 'Broad Market Core (US)', price: 377.99, mcap: 480.5, revGrowth: 10.2, epsGrowth: 11.4, grossM: 42.4, opM: 18.2, fcf: 1.2, fcfM: 15.4, pe: 24.2, fwdPE: 21.4, peg: 1.9, ps: 3.2, evEbitda: 15.4, pFCF: 26.4, fcfYield: 1.1, hi52: 385.4, lo52: 300.2, divY: 1.3, roe: 18.4, roic: 12.2, netM: 14.2, cash: 1.0, debt: 0.1, vol: 18, cagr5: 13.2, etf: true,
+    desc: 'ETF แกนพอร์ต: หุ้นสหรัฐทั้งตลาด ~4,000 ตัว (large/mid/small) ค่าธรรมเนียม 0.03% — ถือยาวเป็นฐานแล้ว satellite ด้วยตัวอื่น.',
+    segments: [['Large-cap', 72], ['Mid-cap', 18], ['Small-cap', 10]],
+    geo: [['United States', 100]],
+    bizModel: 'Passive total-market index; cap-weighted, auto-rebalanced.',
+    customers: 'ผู้ถือหน่วย ETF (แกนพอร์ตระยะยาว)',
+    rev5y: [280.2, 310.4, 340.8, 380.2, 480.5], eps5y: [220.4, 248.2, 272.4, 310.8, 350.2], fcf5y: [0.8, 0.9, 1.0, 1.1, 1.2],
+    moat: [['Diversification', 'แข็งแกร่งมาก', '~4,000 stocks — single-stock risk ~0.'], ['Cost', 'แข็งแกร่งมาก', '0.03% fee — cheapest core available.']],
+    risks: [['Market beta', 'กลาง', 'ผลกระทบกลาง', 'Falls with the whole US market; no downside shield.'], ['Concentration drift', 'ต่ำ', 'ผลกระทบต่ำ', 'Mega-caps dominate weight in bull markets.']],
+    catalysts: ['US earnings growth', 'Rate cuts', 'Buy-and-hold compounding'],
+    scen: { bull: { rev: '+12% CAGR 3Y', margin: 'OPM ~20%', note: 'Earnings boom.' }, base: { rev: '+8% CAGR 3Y', margin: 'OPM ~18%', note: 'Historical norm.' }, bear: { rev: '+2% CAGR 3Y', margin: 'OPM ~15%', note: 'Recession.' } },
+    status: { g: ['📈 มั่นคง', 'b-blue'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟢 เหมาะสม', 'b-green'], r: ['🟢 ต่ำ-กลาง', 'b-green'], q: ['🟢 สูง', 'b-green'] },
+    src: 'Vanguard fund facts (ตัวเลข demo — ดู NAV จริงที่ผู้ออก ETF)' },
+  QQQI: { name: 'NEOS Nasdaq-100 High Income ETF', sector: 'ETF', industry: 'Covered-Call Income (QQQ)', price: 56.08, mcap: 5.2, revGrowth: 9.4, epsGrowth: 10.2, grossM: 48.2, opM: 22.4, fcf: 0.4, fcfM: 18.2, pe: 26.4, fwdPE: 23.2, peg: 2.2, ps: 4.8, evEbitda: 17.8, pFCF: 28.4, fcfYield: 11.5, hi52: 58.4, lo52: 45.2, divY: 11.8, roe: 20.4, roic: 14.2, netM: 16.4, cash: 1.0, debt: 0.1, vol: 16, cagr5: 10.2, etf: true,
+    desc: 'ETF สายกระแสเงินสด: ถือ Nasdaq-100 + เขียน covered call เก็บพรีเมียมมาจ่ายรายเดือน (ยีลด์สูง ~10%+ แต่ upside ถูก cap + NAV กินตัวในตลาดขาขึ้น).',
+    segments: [['Nasdaq-100 equities', 92], ['Options overlay', 8]],
+    geo: [['United States', 100]],
+    bizModel: 'Active covered-call overlay on Nasdaq-100; premium funds monthly distributions.',
+    customers: 'ผู้ถือหน่วย ETF (ต้องการกระแสเงินสดรายเดือน)',
+    rev5y: [1.2, 2.4, 3.8, 4.6, 5.2], eps5y: [38.2, 42.4, 46.8, 50.2, 52.4], fcf5y: [0.2, 0.3, 0.3, 0.4, 0.4],
+    moat: [['Cash flow', 'แข็งแกร่ง', 'Monthly distributions from option premium.'], ['Nasdaq quality', 'แข็งแกร่ง', 'Underlying = 100 largest non-financial Nasdaq names.']],
+    risks: [['Capped upside', 'สูง', 'ผลกระทบกลาง', 'Covered calls trail QQQ hard in strong bull years.'], ['NAV erosion', 'กลาง', 'ผลกระทบกลาง', 'High payouts can eat principal in flat markets.'], ['Short history', 'กลาง', 'ผลกระทบต่ำ', 'Launched 2024; strategy untested in deep bear.']],
+    catalysts: ['Sideways/volatile market (options premium rich)', 'Rate stability supporting tech'],
+    scen: { bull: { rev: '+10% CAGR 3Y', margin: 'OPM ~24%', note: 'Tech rallies; distributions + modest NAV gain.' }, base: { rev: '+7% CAGR 3Y', margin: 'OPM ~22%', note: 'Sideways market = sweet spot.' }, bear: { rev: '+2% CAGR 3Y', margin: 'OPM ~18%', note: 'Tech sells off; distributions cushion.' } },
+    status: { g: ['📈 มั่นคง', 'b-blue'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟡 ค่อนข้างแพง', 'b-yellow'], r: ['🟡 กลาง', 'b-yellow'], q: ['🟡 กลาง', 'b-yellow'] },
+    src: 'NEOS fund facts (ตัวเลข demo — ดูกระจายตัว/NAV จริงที่ผู้ออก ETF)' },
+  VOO: { name: 'Vanguard S&P 500 ETF', sector: 'ETF', industry: 'Broad Market Core (S&P 500)', price: 595.2, mcap: 720.4, revGrowth: 10.8, epsGrowth: 12.2, grossM: 44.2, opM: 19.4, fcf: 1.4, fcfM: 16.2, pe: 24.8, fwdPE: 22.0, peg: 1.8, ps: 3.4, evEbitda: 16.2, pFCF: 27.2, fcfYield: 1.1, hi52: 610.4, lo52: 470.8, divY: 1.2, roe: 19.2, roic: 13.2, netM: 15.2, cash: 1.0, debt: 0.1, vol: 18, cagr5: 14.2, etf: true,
+    desc: 'ETF แกนพอร์ต: S&P 500 หุ้นใหญ่ 500 ตัว ค่าธรรมเนียม 0.03% — มาตรฐานเปรียบเทียบพอร์ตระยะยาว.',
+    segments: [['Large-cap blend', 100]],
+    geo: [['United States', 100]],
+    bizModel: 'Passive S&P 500 index; cap-weighted.',
+    customers: 'ผู้ถือหน่วย ETF (แกนพอร์ตระยะยาว)',
+    rev5y: [480.2, 540.8, 590.4, 650.2, 720.4], eps5y: [380.2, 420.4, 460.8, 510.2, 560.4], fcf5y: [1.0, 1.1, 1.2, 1.3, 1.4],
+    moat: [['Diversification', 'แข็งแกร่งมาก', '500 large-caps across all sectors.'], ['Cost', 'แข็งแกร่งมาก', '0.03% fee.']],
+    risks: [['Market beta', 'กลาง', 'ผลกระทบกลาง', 'Falls with the US large-cap market.'], ['Overlap with VTI', 'ต่ำ', 'ผลกระทบต่ำ', 'VTI ถือ VOO อยู่แล้ว ~85% — ถือคู่กัน = ซ้ำซ้อน.']],
+    catalysts: ['US earnings growth', 'Rate cuts', 'Buy-and-hold compounding'],
+    scen: { bull: { rev: '+12% CAGR 3Y', margin: 'OPM ~21%', note: 'Earnings boom.' }, base: { rev: '+8% CAGR 3Y', margin: 'OPM ~19%', note: 'Historical norm.' }, bear: { rev: '+2% CAGR 3Y', margin: 'OPM ~16%', note: 'Recession.' } },
+    status: { g: ['📈 มั่นคง', 'b-blue'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟢 เหมาะสม', 'b-green'], r: ['🟢 ต่ำ-กลาง', 'b-green'], q: ['🟢 สูง', 'b-green'] },
+    src: 'Vanguard fund facts (ตัวเลข demo — ดู NAV จริงที่ผู้ออก ETF)' },
+  VXUS: { name: 'Vanguard Total International Stock ETF', sector: 'ETF', industry: 'International Core (ex-US)', price: 75.4, mcap: 90.2, revGrowth: 7.2, epsGrowth: 8.4, grossM: 36.4, opM: 14.2, fcf: 0.8, fcfM: 14.8, pe: 16.4, fwdPE: 14.2, peg: 1.7, ps: 1.8, evEbitda: 10.4, pFCF: 18.2, fcfYield: 2.2, hi52: 78.4, lo52: 60.2, divY: 2.5, roe: 12.4, roic: 8.2, netM: 10.2, cash: 1.0, debt: 0.1, vol: 17, cagr5: 6.4, etf: true,
+    desc: 'ETF กระจายออกนอกสหรัฐ: หุ้น developed + emerging ~8,000 ตัว (ยุโรป/ญี่ปุ่น/จีน) — ตัวปรับสมดุล geographic risk ของพอร์ต.',
+    segments: [['Developed markets', 75], ['Emerging markets', 25]],
+    geo: [['Europe', 42], ['Japan', 16], ['China/EM Asia', 22], ['Other', 20]],
+    bizModel: 'Passive FTSE Global All Cap ex US index; cap-weighted.',
+    customers: 'ผู้ถือหน่วย ETF (กระจายภูมิภาค)',
+    rev5y: [62.4, 68.2, 74.8, 82.4, 90.2], eps5y: [48.2, 52.4, 56.8, 60.2, 64.8], fcf5y: [0.5, 0.6, 0.7, 0.7, 0.8],
+    moat: [['Geographic diversification', 'แข็งแกร่งมาก', '~8,000 non-US stocks; US-tech crash cushion.'], ['Cost', 'แข็งแกร่งมาก', '0.07% fee.']],
+    risks: [['Currency', 'กลาง', 'ผลกระทบกลาง', 'Strong dollar drags USD returns.'], ['China/EM weight', 'กลาง', 'ผลกระทบกลาง', 'Geopolitics + regulation in EM sleeve.']],
+    catalysts: ['Dollar weakness', 'Europe/Japan earnings recovery', 'EM consumption growth'],
+    scen: { bull: { rev: '+10% CAGR 3Y', margin: 'OPM ~16%', note: 'Non-US earnings boom.' }, base: { rev: '+6% CAGR 3Y', margin: 'OPM ~14%', note: 'Slow grind.' }, bear: { rev: '+0% CAGR 3Y', margin: 'OPM ~11%', note: 'Global recession.' } },
+    status: { g: ['📈 มั่นคง', 'b-blue'], f: ['🟢 แข็งแรง', 'b-green'], v: ['🟢 เหมาะสม', 'b-green'], r: ['🟡 กลาง', 'b-yellow'], q: ['🟢 สูง', 'b-green'] },
+    src: 'Vanguard fund facts (ตัวเลข demo — ดู NAV จริงที่ผู้ออก ETF)' },
 };
 const TICKERS = Object.keys(SEED);
 
@@ -161,8 +317,8 @@ async function fetchText(url, ms) {
   try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url); return await r.text(); }
   finally { clearTimeout(t); }
 }
-const STOOQ_SYM = { NVDA: 'nvda.us', AVGO: 'avgo.us', MU: 'mu.us', SKHY: 'skhy.us', ASML: 'asml.us', AMD: 'amd.us', GOOGL: 'googl.us', AMZN: 'amzn.us', COST: 'cost.us', VOO: 'voo.us', BTC: 'btcusd' };
-const CIK_FALLBACK = { NVDA: 1045810, AVGO: 1730168, MU: 723125, SKHY: 2120882, ASML: 937966, AMD: 2488, GOOGL: 1652044, AMZN: 1018724 };
+const STOOQ_SYM = { NVDA: 'nvda.us', AVGO: 'avgo.us', MU: 'mu.us', SKHY: 'skhy.us', ASML: 'asml.us', AMD: 'amd.us', GOOGL: 'googl.us', AMZN: 'amzn.us', COST: 'cost.us', VOO: 'voo.us', BTC: 'btcusd', CRWD: 'crwd.us', NBIS: 'nbis.us', LITE: 'lite.us', VRT: 'vrt.us', AMAT: 'amat.us', AAOI: 'aaoi.us', SMH: 'smh.us', SOXX: 'soxx.us', VTI: 'vti.us', QQQI: 'qqqi.us', VXUS: 'vxus.us' };
+const CIK_FALLBACK = { NVDA: 1045810, AVGO: 1730168, MU: 723125, SKHY: 2120882, ASML: 937966, AMD: 2488, GOOGL: 1652044, AMZN: 1018724, CRWD: 1564408, AMAT: 6951, LITE: 1599834, VRT: 1674101, AAOI: 1158114 };
 async function getCIK(t) {
   let map = LiveCache.get('cikmap', 30 * 864e5);
   if (!map) {
@@ -784,21 +940,30 @@ function demoTrackRow(t) {
 }
 /* ---------------- TRADINGVIEW snapshot (public scanner API, real data) -- */
 const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'total_revenue_yoy_growth_ttm', 'earnings_per_share_diluted_yoy_growth_ttm', 'net_income_ttm', 'net_income_yoy_growth_ttm', 'gross_profit_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'ebitda_ttm', 'free_cash_flow_ttm', 'capital_expenditures_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
-const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', SKHY: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ' };
+const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', SKHY: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ', CRWD: 'NASDAQ', NBIS: 'NASDAQ', LITE: 'NASDAQ', VRT: 'NYSE', AMAT: 'NASDAQ', AAOI: 'NASDAQ', SMH: 'NASDAQ', SOXX: 'NASDAQ', VTI: 'AMEX', QQQI: 'NASDAQ', VOO: 'AMEX', VXUS: 'NASDAQ' };
 async function getTVSnapshot(t, force) {
   if (!force) {
     const cached = LiveCache.get('tv3_' + t, 15 * 60e3);
     if (cached) return cached;
   }
-  const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + (TV_EX[t] || 'NASDAQ') + ':' + t + '&fields=' + TV_COLS.join(','), 12000);
-  if (!j || j.close == null) throw new Error('Empty TradingView response');
-  try {
-    /* SKHY: TV returns the SK Telecom logo id for this new ADR — a letter
-       fallback is more honest than the wrong logo. */
-    if (j.logoid && !(t === 'SKHY' && /telecom/i.test(j.logoid))) { const m = store.get('asrt_logos', {}); m[t] = j.logoid; store.set('asrt_logos', m); }
-  } catch (_) {}
-  LiveCache.set('tv3_' + t, j);
-  return j;
+  /* ลอง exchange หลักก่อน แล้ว fallback (ETF บางตัวอยู่ AMEX/NYSE Arca) */
+  const exs = Array.from(new Set([TV_EX[t] || 'NASDAQ', 'NASDAQ', 'NYSE', 'AMEX']));
+  let lastErr = new Error('Empty TradingView response');
+  for (const ex of exs) {
+    try {
+      const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + ex + ':' + t + '&fields=' + TV_COLS.join(','), 12000);
+      if (j && j.close != null) {
+        try {
+          /* SKHY: TV returns the SK Telecom logo id for this new ADR — a letter
+             fallback is more honest than the wrong logo. */
+          if (j.logoid && !(t === 'SKHY' && /telecom/i.test(j.logoid))) { const m = store.get('asrt_logos', {}); m[t] = j.logoid; store.set('asrt_logos', m); }
+        } catch (_) {}
+        LiveCache.set('tv3_' + t, j);
+        return j;
+      }
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
 }
 function tvRating(v) {
   if (v == null || isNaN(v)) return 'N/A';
@@ -824,8 +989,8 @@ const RANK_PRESETS = [
 let rankPreset = 'rev', rankMcap = 10000000000, rankEx = ['NASDAQ', 'NYSE'];
 /* สำรองเมื่อ POST โดนบล็อก: สแกนหุ้นใหญ่ ~50 ตัวด้วย GET ตรง (ไม่ preflight) */
 const RANK_UNIVERSE = [
-  ['NASDAQ', 'NVDA'], ['NASDAQ', 'AVGO'], ['NASDAQ', 'MU'], ['NASDAQ', 'SKHY'], ['NASDAQ', 'ASML'], ['NASDAQ', 'AMD'], ['NASDAQ', 'GOOGL'], ['NASDAQ', 'AMZN'], ['NASDAQ', 'COST'], ['NASDAQ', 'AAPL'], ['NASDAQ', 'MSFT'], ['NASDAQ', 'META'], ['NASDAQ', 'TSLA'], ['NASDAQ', 'NFLX'], ['NASDAQ', 'ADBE'], ['NASDAQ', 'INTC'], ['NASDAQ', 'QCOM'], ['NASDAQ', 'AMAT'], ['NASDAQ', 'CSCO'], ['NASDAQ', 'ARM'], ['NASDAQ', 'PLTR'], ['NASDAQ', 'TXN'], ['NASDAQ', 'GILD'], ['NASDAQ', 'AMGN'], ['NASDAQ', 'PYPL'], ['NASDAQ', 'MELI'], ['NASDAQ', 'ABNB'], ['NASDAQ', 'CRWD'], ['NASDAQ', 'PANW'], ['NASDAQ', 'SNOW'], ['NASDAQ', 'DDOG'],
-  ['NYSE', 'ORCL'], ['NYSE', 'CRM'], ['NYSE', 'JPM'], ['NYSE', 'V'], ['NYSE', 'MA'], ['NYSE', 'WMT'], ['NYSE', 'HD'], ['NYSE', 'PG'], ['NYSE', 'KO'], ['NYSE', 'PEP'], ['NYSE', 'DIS'], ['NYSE', 'NKE'], ['NYSE', 'MCD'], ['NYSE', 'JNJ'], ['NYSE', 'XOM'], ['NYSE', 'CVX'], ['NYSE', 'UNH'], ['NYSE', 'LLY'], ['NYSE', 'ABBV'], ['NYSE', 'MRK'], ['NYSE', 'TMO'], ['NYSE', 'CAT'], ['NYSE', 'GE'], ['NYSE', 'SHOP'], ['NYSE', 'UBER'], ['NYSE', 'LIN'],
+  ['NASDAQ', 'NVDA'], ['NASDAQ', 'AVGO'], ['NASDAQ', 'MU'], ['NASDAQ', 'SKHY'], ['NASDAQ', 'ASML'], ['NASDAQ', 'AMD'], ['NASDAQ', 'GOOGL'], ['NASDAQ', 'AMZN'], ['NASDAQ', 'COST'], ['NASDAQ', 'AAPL'], ['NASDAQ', 'MSFT'], ['NASDAQ', 'META'], ['NASDAQ', 'TSLA'], ['NASDAQ', 'NFLX'], ['NASDAQ', 'ADBE'], ['NASDAQ', 'INTC'], ['NASDAQ', 'QCOM'], ['NASDAQ', 'AMAT'], ['NASDAQ', 'CSCO'], ['NASDAQ', 'ARM'], ['NASDAQ', 'PLTR'], ['NASDAQ', 'TXN'], ['NASDAQ', 'GILD'], ['NASDAQ', 'AMGN'], ['NASDAQ', 'PYPL'], ['NASDAQ', 'MELI'], ['NASDAQ', 'ABNB'], ['NASDAQ', 'CRWD'], ['NASDAQ', 'PANW'], ['NASDAQ', 'SNOW'], ['NASDAQ', 'DDOG'], ['NASDAQ', 'NBIS'], ['NASDAQ', 'LITE'], ['NASDAQ', 'AAOI'],
+  ['NYSE', 'ORCL'], ['NYSE', 'CRM'], ['NYSE', 'VRT'], ['NYSE', 'JPM'], ['NYSE', 'V'], ['NYSE', 'MA'], ['NYSE', 'WMT'], ['NYSE', 'HD'], ['NYSE', 'PG'], ['NYSE', 'KO'], ['NYSE', 'PEP'], ['NYSE', 'DIS'], ['NYSE', 'NKE'], ['NYSE', 'MCD'], ['NYSE', 'JNJ'], ['NYSE', 'XOM'], ['NYSE', 'CVX'], ['NYSE', 'UNH'], ['NYSE', 'LLY'], ['NYSE', 'ABBV'], ['NYSE', 'MRK'], ['NYSE', 'TMO'], ['NYSE', 'CAT'], ['NYSE', 'GE'], ['NYSE', 'SHOP'], ['NYSE', 'UBER'], ['NYSE', 'LIN'],
 ];
 async function tvScanUniverse(preset) {
   const out = [];
@@ -945,7 +1110,17 @@ const store = {
   get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch { return d; } },
   set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
 };
-let watchlist = store.get('asrt_watch', ['NVDA', 'AVGO', 'MU', 'SKHY', 'ASML', 'AMD', 'GOOGL', 'AMZN']);
+let watchlist = store.get('asrt_watch', ['NVDA', 'AVGO', 'MU', 'SKHY', 'ASML', 'AMD', 'GOOGL', 'AMZN', 'CRWD', 'NBIS', 'LITE', 'VRT', 'AMAT', 'AAOI', 'SMH', 'SOXX', 'VTI', 'QQQI', 'VOO', 'VXUS']);
+/* Migrate ครั้งเดียว: ผู้ใช้เดิมที่เซฟ watchlist เก่าไว้ จะได้หุ้น/ETF ชุดใหม่เติมเข้าไป (ลบออกเองได้) */
+(function migrateWatchlist() {
+  try {
+    if (!localStorage.getItem('asrt_watch_v2')) {
+      const add = ['CRWD', 'NBIS', 'LITE', 'VRT', 'AMAT', 'AAOI', 'SMH', 'SOXX', 'VTI', 'QQQI', 'VOO', 'VXUS'].filter((t) => !watchlist.includes(t));
+      if (add.length) { watchlist = [...watchlist, ...add]; store.set('asrt_watch', watchlist); }
+      localStorage.setItem('asrt_watch_v2', '1');
+    }
+  } catch (_) {}
+})();
 let journal = store.get('asrt_journal', []);
 const getNotes = (t) => store.get('asrt_notes_' + t, { thesis: '', bull: '', bear: '', entry: '', risk: '', notes: '' });
 
@@ -1530,9 +1705,9 @@ function renderStock(t) {
 }
 
 /* ---------------- MY PORTFOLIO (พอร์ตจริงของฉัน, บาท) ---------------- */
-const PF_LOGO_BG = { AVGO: '#e11d48', MU: '#1d4ed8', ASML: '#1e40af', NVDA: '#16a34a', AMD: '#52525b', COST: '#b91c1c', AMZN: '#f97316' };
-const TV_LOGO = { NVDA: 'nvidia', AVGO: 'broadcom', MU: 'micron-technology', ASML: 'asml', AMD: 'advanced-micro-devices', GOOGL: 'alphabet', AMZN: 'amazon', COST: 'costco-wholesale' };
-const PF_TICKS = ['AVGO', 'MU', 'SKHY', 'ASML', 'NVDA', 'AMD', 'COST', 'AMZN', 'GOOGL', 'META', 'AAPL', 'MSFT', 'TSM', 'อื่นๆ'];
+const PF_LOGO_BG = { AVGO: '#e11d48', MU: '#1d4ed8', ASML: '#1e40af', NVDA: '#16a34a', AMD: '#52525b', COST: '#b91c1c', AMZN: '#f97316', CRWD: '#e11d48', NBIS: '#0ea5e9', LITE: '#7c3aed', VRT: '#0284c7', AMAT: '#16a34a', AAOI: '#0891b2', SMH: '#1d4ed8', SOXX: '#1e40af', VTI: '#b91c1c', QQQI: '#059669', VOO: '#b91c1c', VXUS: '#0d9488' };
+const TV_LOGO = { NVDA: 'nvidia', AVGO: 'broadcom', MU: 'micron-technology', ASML: 'asml', AMD: 'advanced-micro-devices', GOOGL: 'alphabet', AMZN: 'amazon', COST: 'costco-wholesale', CRWD: 'crowdstrike', AMAT: 'applied-materials', VRT: 'vertiv', SMH: 'vaneck', SOXX: 'ishares' };
+const PF_TICKS = ['AVGO', 'MU', 'SKHY', 'ASML', 'NVDA', 'AMD', 'COST', 'AMZN', 'GOOGL', 'META', 'AAPL', 'MSFT', 'TSM', 'CRWD', 'NBIS', 'LITE', 'VRT', 'AMAT', 'AAOI', 'SMH', 'SOXX', 'VTI', 'QQQI', 'VOO', 'VXUS', 'อื่นๆ'];
 let pfOpen = -1;
 function pfDefault() {
   return {
@@ -1725,7 +1900,7 @@ async function fillRankings() {
     if (!$('#rkBody')) return;
     rankRowsCache = rows;
     const medal = ['🥇', '🥈', '🥉'];
-    el.innerHTML = '<p class="muted small">เจอ ' + total + ' ตัวตามเงื่อนไข · โชว์ 20 อันดับแรก · สแกนเมื่อ ' + esc(at) + (mode === 'universe' ? ' · <span class="badge b-yellow">โหมดสำรอง: 56 หุ้นใหญ่ (POST โดนบล็อกเลยใช้ GET ตรง)</span>' : '') + ' · <span class="badge b-green">REAL DATA · TradingView</span></p>'
+    el.innerHTML = '<p class="muted small">เจอ ' + total + ' ตัวตามเงื่อนไข · โชว์ 20 อันดับแรก · สแกนเมื่อ ' + esc(at) + (mode === 'universe' ? ' · <span class="badge b-yellow">โหมดสำรอง: สแกนหุ้นใหญ่รายตัวด้วย GET ตรง (POST โดนบล็อก)</span>' : '') + ' · <span class="badge b-green">REAL DATA · TradingView</span></p>'
       + '<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr))">'
       + rows.map((r, i) => {
         const chg = r.change, up = (chg || 0) >= 0;
@@ -1761,7 +1936,7 @@ function rkLogo(r) {
   if (!id) return fb.replace('display:none', 'display:grid');
   return '<img class="pf-logo-img" style="width:36px;height:36px" src="https://s3-symbol-logo.tradingview.com/' + id + '--big.svg" alt="โลโก้ ' + esc(r.t) + '" loading="lazy" onerror="pfLogoFail(this)">' + fb;
 }
-const WIKI_TITLES = { NVDA: 'Nvidia', AVGO: 'Broadcom', MU: 'Micron_Technology', SKHY: 'SK_Hynix', ASML: 'ASML', AMD: 'AMD', GOOGL: 'Google', AMZN: 'Amazon_(company)', COST: 'Costco', AAPL: 'Apple_Inc.', MSFT: 'Microsoft', META: 'Meta_Platforms', TSLA: 'Tesla,_Inc.', NFLX: 'Netflix', JPM: 'JPMorgan_Chase', V: 'Visa_Inc.', MA: 'Mastercard', WMT: 'Walmart', HD: 'Home_Depot', PG: 'Procter_&_Gamble', JNJ: 'Johnson_&_Johnson', XOM: 'ExxonMobil', CVX: 'Chevron_Corporation', UNH: 'UnitedHealth_Group', LLY: 'Eli_Lilly_and_Company', DIS: 'The_Walt_Disney_Company', NKE: 'Nike,_Inc.', ORCL: 'Oracle_Corporation', CRM: 'Salesforce', ADBE: 'Adobe_Inc.', INTC: 'Intel', QCOM: 'Qualcomm', AMAT: 'Applied_Materials', TXN: 'Texas_Instruments', CSCO: 'Cisco', ABBV: 'AbbVie', MRK: 'Merck_&_Co.', KO: 'Coca-Cola_Company', PEP: 'PepsiCo', MCD: "McDonald's", CAT: 'Caterpillar_Inc.', GE: 'GE_Aerospace', TMO: 'Thermo_Fisher_Scientific' };
+const WIKI_TITLES = { NVDA: 'Nvidia', AVGO: 'Broadcom', MU: 'Micron_Technology', SKHY: 'SK_Hynix', ASML: 'ASML', AMD: 'AMD', GOOGL: 'Google', AMZN: 'Amazon_(company)', CRWD: 'CrowdStrike', AMAT: 'Applied_Materials', VRT: 'Vertiv', LITE: 'Lumentum', COST: 'Costco', AAPL: 'Apple_Inc.', MSFT: 'Microsoft', META: 'Meta_Platforms', TSLA: 'Tesla,_Inc.', NFLX: 'Netflix', JPM: 'JPMorgan_Chase', V: 'Visa_Inc.', MA: 'Mastercard', WMT: 'Walmart', HD: 'Home_Depot', PG: 'Procter_&_Gamble', JNJ: 'Johnson_&_Johnson', XOM: 'ExxonMobil', CVX: 'Chevron_Corporation', UNH: 'UnitedHealth_Group', LLY: 'Eli_Lilly_and_Company', DIS: 'The_Walt_Disney_Company', NKE: 'Nike,_Inc.', ORCL: 'Oracle_Corporation', CRM: 'Salesforce', ADBE: 'Adobe_Inc.', INTC: 'Intel', QCOM: 'Qualcomm', AMAT: 'Applied_Materials', TXN: 'Texas_Instruments', CSCO: 'Cisco', ABBV: 'AbbVie', MRK: 'Merck_&_Co.', KO: 'Coca-Cola_Company', PEP: 'PepsiCo', MCD: "McDonald's", CAT: 'Caterpillar_Inc.', GE: 'GE_Aerospace', TMO: 'Thermo_Fisher_Scientific' };
 async function wikiSummary(t) {
   if (!WIKI_TITLES[t]) return null;
   const cached = LiveCache.get('wiki_' + t, 7 * 864e5);
@@ -2073,7 +2248,12 @@ const SC_MAP = [
   { layer: 'Memory (HBM ผู้นำ)', co: 'SK hynix', t: 'SKHY', note: 'HBM3E/HBM4 ส่ง NVIDIA' },
   { layer: 'Foundry', co: 'TSMC', t: null, url: 'https://th.tradingview.com/symbols/NYSE-TSM/', note: 'ผลิตชิป (เปิดบน TradingView)' },
   { layer: 'Lithography', co: 'ASML', t: 'ASML', note: 'EUV เจ้าเดียวในโลก' },
-  { layer: 'Equipment', co: 'Applied Materials', t: null, url: 'https://th.tradingview.com/symbols/NASDAQ-AMAT/', note: 'อุปกรณ์ผลิตชิป (เปิดบน TradingView)' },
+  { layer: 'Equipment', co: 'Applied Materials', t: 'AMAT', note: 'อุปกรณ์ผลิตชิป (deposition/etch)' },
+  { layer: 'Optical', co: 'Lumentum', t: 'LITE', note: 'เลเซอร์ + optical 800G/1.6T' },
+  { layer: 'Optical', co: 'Applied Opto', t: 'AAOI', note: 'transceiver 400G/800G' },
+  { layer: 'Power/Cooling', co: 'Vertiv', t: 'VRT', note: 'ไฟ + ระบายความร้อน datacenter' },
+  { layer: 'Security', co: 'CrowdStrike', t: 'CRWD', note: 'Falcon endpoint SaaS' },
+  { layer: 'AI Cloud', co: 'Nebius', t: 'NBIS', note: 'GPU cloud เช่า compute' },
 ];
 function scMapHTML() {
   return '<div class="card sec"><div class="sec-head"><h3>🗺 Semiconductor AI Map — กด node เพื่อเปิดรายละเอียด</h3>' + DEMO + '</div>'
@@ -2089,8 +2269,12 @@ function renderIndustry() {
   const groups = [
     ['เซมิคอนดักเตอร์ — AI Compute', 'TAM ~$300B ปี 2030 (demo) · โต ~15%/ปี', ['NVDA', 'AMD', 'AVGO']],
     ['เมมโมรี — DRAM/NAND + HBM', 'TAM ~$200B · วัฏจักร + แรงหนุน AI', ['MU', 'SKHY']],
-    ['ลิโทกราฟี — ผูกขาด EUV', 'TAM ~$40B เครื่องจักร · วัฏจักร High-NA', ['ASML']],
+    ['อุปกรณ์ผลิตชิป — ลิโท + กระบวนการ', 'TAM ~$130B เครื่องจักร · วัฏจักร capex', ['ASML', 'AMAT']],
+    ['Optical — เชื่อมต่อใน datacenter', 'TAM ~$20B · รอบ 800G/1.6T', ['LITE', 'AAOI']],
+    ['Datacenter infra — ไฟ + ระบายความร้อน', 'TAM ~$60B · ตามการสร้าง datacenter', ['VRT']],
+    ['ซอฟต์แวร์ — Cybersecurity + AI Cloud', 'ARR-driven · เติบโตสูง ผันผวนสูง', ['CRWD', 'NBIS']],
     ['คลาวด์ — AWS / Azure / GCP', 'TAM ~$1T+ · โต ~17%/ปี', ['GOOGL', 'AMZN']],
+    ['ETF — แกนพอร์ต + satellite', 'ค่าธรรมเนียมต่ำ · ถือยาวเป็นฐาน', ['VTI', 'VOO', 'VXUS', 'SMH', 'SOXX', 'QQQI']],
   ];
   view().innerHTML = '<div class="hero"><div><h1>อุตสาหกรรมและ TAM</h1><p>แต่ละบริษัทอยู่ตรงไหน ตลาดใหญ่แค่ไหน ใครแข่งบ้าง ' + DEMO + '</p></div></div>'
     + scMapHTML()
@@ -2203,7 +2387,7 @@ function renderTools() {
    Strategy: invest fixed USD at each month-end close. Metrics from the
    resulting portfolio-value series. No fake fills — if history is missing
    the asset is skipped with a reason. Past ≠ future. -------------------- */
-const BT_ASSETS = ['NVDA', 'AVGO', 'MU', 'ASML', 'AMD', 'VOO', 'BTC'];
+const BT_ASSETS = ['NVDA', 'AVGO', 'MU', 'ASML', 'AMD', 'VOO', 'BTC', 'CRWD', 'LITE', 'VRT', 'AMAT', 'AAOI', 'SMH', 'SOXX', 'VTI', 'QQQI', 'VXUS'];
 let btSel = ['NVDA', 'AVGO', 'MU', 'ASML', 'AMD'];
 async function getMonthly(t) {
   const key = 'monthly_' + t;
