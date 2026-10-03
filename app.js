@@ -335,7 +335,7 @@ async function getMarketOverview() {
      keep literal commas — encoding commas breaks Stooq parsing. */
   try {
     const syms = MARKET_SYMS.map((m) => encodeURIComponent(m.sym)).join(',');
-    const txt = await fetchText('https://stooq.com/q/l/?s=' + syms + '&f=sd2t2ohlcv&h&e=csv', 12000);
+    const txt = await fetchText('https://stooq.com/q/l/?s=' + syms + '&f=sd2t2ohlcv&h&e=csv', 8000);
     const rows = [];
     txt.trim().split('\n').slice(1).forEach((ln) => {
       const p = ln.split(',');
@@ -353,7 +353,10 @@ async function getMarketOverview() {
     throw new Error('incomplete Stooq response');
   } catch (e1) {
     /* 2) Fallback: TradingView scanner (same engine as stock cards,
-       which already works) — indices/crypto/fx symbols. */
+       which already works) — indices/crypto/fx symbols.
+       Sequential + retry: dashboard fires many TV requests at once and
+       parallel bursts can get HTTP 429. Colon left raw, exactly like
+       the proven getTVSnapshot pattern. */
     const TV_MKT = [
       { id: 'SPX', label: 'S&P 500', tv: 'SP:SPX' },
       { id: 'NDQ', label: 'NASDAQ 100', tv: 'NASDAQ:NDX' },
@@ -363,12 +366,18 @@ async function getMarketOverview() {
       { id: 'FX', label: 'USD/THB', tv: 'FX_IDC:USDTHB' },
     ];
     const rows = [];
-    await Promise.all(TV_MKT.map(async (m) => {
-      try {
-        const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + encodeURIComponent(m.tv) + '&fields=close,change', 10000);
-        if (j && j.close != null) rows.push({ id: m.id, label: m.label, price: j.close, chg: j.change, stamp: new Date().toLocaleString('th-TH'), src: 'TradingView' });
-      } catch (_) {}
-    }));
+    for (const m of TV_MKT) {
+      for (let a = 0; a < 3; a++) {
+        try {
+          if (a > 0) await new Promise((r) => setTimeout(r, 900 * a));
+          const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + m.tv + '&fields=close,change', 12000);
+          if (j && j.close != null) {
+            rows.push({ id: m.id, label: m.label, price: j.close, chg: j.change, stamp: new Date().toLocaleString('th-TH'), src: 'TradingView' });
+            break;
+          }
+        } catch (_) {}
+      }
+    }
     if (!rows.length) throw new Error('Failed to fetch');
     const out = { rows: TV_MKT.map((m) => rows.find((r) => r.id === m.id)).filter(Boolean), mode: 'tv' };
     LiveCache.set('market_overview', out);
