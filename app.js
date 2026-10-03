@@ -330,20 +330,50 @@ const MARKET_SYMS = [
 ];
 async function getMarketOverview() {
   const cached = LiveCache.get('market_overview', 15 * 60e3);
-  if (cached) return cached;
-  const syms = MARKET_SYMS.map((m) => m.sym).join(',');
-  const txt = await fetchText('https://stooq.com/q/l/?s=' + encodeURIComponent(syms) + '&f=sd2t2ohlcv&h&e=csv', 12000);
-  const out = {};
-  txt.trim().split('\n').slice(1).forEach((ln) => {
-    const p = ln.split(',');
-    const sym = (p[0] || '').toLowerCase();
-    if (p.length >= 8 && p[6] !== 'N/D' && !isNaN(+p[6])) {
-      out[sym] = { date: p[1], time: p[2], open: +p[3], close: +p[6] };
+  if (cached && cached.rows && cached.rows.length) return cached;
+  /* 1) Stooq first (has session open + timestamp). Encode each symbol,
+     keep literal commas — encoding commas breaks Stooq parsing. */
+  try {
+    const syms = MARKET_SYMS.map((m) => encodeURIComponent(m.sym)).join(',');
+    const txt = await fetchText('https://stooq.com/q/l/?s=' + syms + '&f=sd2t2ohlcv&h&e=csv', 12000);
+    const rows = [];
+    txt.trim().split('\n').slice(1).forEach((ln) => {
+      const p = ln.split(',');
+      const sym = (p[0] || '').toLowerCase();
+      if (p.length >= 8 && p[6] !== 'N/D' && !isNaN(+p[6])) {
+        const m = MARKET_SYMS.find((x) => x.sym === sym);
+        if (m) rows.push({ id: m.id, label: m.label, price: +p[6], chg: (p[3] && !isNaN(+p[3]) && +p[3] !== 0) ? (((+p[6] - +p[3]) / +p[3]) * 100) : null, stamp: (p[1] || '') + ' ' + (p[2] || ''), src: 'Stooq' });
+      }
+    });
+    if (rows.length >= 4) {
+      const out = { rows: MARKET_SYMS.map((m) => rows.find((r) => r.id === m.id)).filter(Boolean), mode: 'stooq' };
+      LiveCache.set('market_overview', out);
+      return out;
     }
-  });
-  if (!Object.keys(out).length) throw new Error('Empty market response');
-  LiveCache.set('market_overview', out);
-  return out;
+    throw new Error('incomplete Stooq response');
+  } catch (e1) {
+    /* 2) Fallback: TradingView scanner (same engine as stock cards,
+       which already works) — indices/crypto/fx symbols. */
+    const TV_MKT = [
+      { id: 'SPX', label: 'S&P 500', tv: 'SP:SPX' },
+      { id: 'NDQ', label: 'NASDAQ 100', tv: 'NASDAQ:NDX' },
+      { id: 'DJI', label: 'Dow Jones', tv: 'DJ:DJI' },
+      { id: 'VIX', label: 'VIX', tv: 'TVC:VIX' },
+      { id: 'BTC', label: 'Bitcoin', tv: 'BITSTAMP:BTCUSD' },
+      { id: 'FX', label: 'USD/THB', tv: 'FX_IDC:USDTHB' },
+    ];
+    const rows = [];
+    await Promise.all(TV_MKT.map(async (m) => {
+      try {
+        const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + encodeURIComponent(m.tv) + '&fields=close,change', 10000);
+        if (j && j.close != null) rows.push({ id: m.id, label: m.label, price: j.close, chg: j.change, stamp: new Date().toLocaleString('th-TH'), src: 'TradingView' });
+      } catch (_) {}
+    }));
+    if (!rows.length) throw new Error('Failed to fetch');
+    const out = { rows: TV_MKT.map((m) => rows.find((r) => r.id === m.id)).filter(Boolean), mode: 'tv' };
+    LiveCache.set('market_overview', out);
+    return out;
+  }
 }
 function marketOverviewHTML() {
   return '<div class="card sec" id="mktCard"><div class="sec-head"><h3>ภาพรวมตลาด</h3><span class="muted small" id="mktTs">กำลังโหลด…</span></div>'
@@ -354,19 +384,19 @@ async function fillMarketOverview() {
   if (!body) return;
   if (!DataService.liveOn()) { body.innerHTML = '<div class="muted small">ปิดโหมด live อยู่ (ตั้งค่า → Live เพื่อดูภาพรวมตลาด)</div>'; if (ts) ts.textContent = ''; return; }
   try {
-    const q = await getMarketOverview();
+    const mkt = await getMarketOverview();
     if (!$('#mktBody')) return;
-    let stamp = '';
-    body.innerHTML = MARKET_SYMS.map((m) => {
-      const r = q[m.sym];
-      if (!r) return '<div class="cell"><div class="k">' + esc(m.label) + '</div><div class="v">N/A</div></div>';
-      const chg = r.open ? (((r.close - r.open) / r.open) * 100) : null;
-      stamp = r.date + ' ' + r.time;
-      const dec = m.id === 'FX' ? 2 : (m.id === 'VIX' ? 2 : (r.close > 10000 ? 0 : 2));
-      return '<div class="cell"><div class="k">' + esc(m.label) + '</div><div class="v" style="font-size:16px">' + Number(r.close).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '</div>'
-        + '<div class="small" style="color:' + (chg >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (chg != null ? (chg >= 0 ? '▲ +' : '▼ ') + chg.toFixed(2) + '% วันนี้' : '') + '</div></div>';
+    const rows = mkt.rows || [];
+    if (!rows.length) throw new Error('Empty market response');
+    body.innerHTML = rows.map((r) => {
+      const dec = r.id === 'FX' ? 2 : (r.id === 'VIX' ? 2 : (r.price > 10000 ? 0 : 2));
+      return '<div class="cell"><div class="k">' + esc(r.label) + '</div><div class="v" style="font-size:16px">' + Number(r.price).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '</div>'
+        + '<div class="small" style="color:' + ((r.chg || 0) >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (r.chg != null ? (r.chg >= 0 ? '▲ +' : '▼ ') + Math.abs(r.chg).toFixed(2) + '% วันนี้' : '') + '</div></div>';
     }).join('');
-    if (ts) ts.innerHTML = '<span class="badge b-green fresh">● สด (ดีเลย์)</span> <span class="muted small">Stooq · Updated: ' + esc(stamp) + '</span>';
+    const stamp = rows[0].stamp || '';
+    const srcName = rows[0].src || 'Stooq';
+    const partial = rows.length < MARKET_SYMS.length ? ' · ครบ ' + rows.length + '/' + MARKET_SYMS.length : '';
+    if (ts) ts.innerHTML = '<span class="badge b-green fresh">● สด (ดีเลย์)</span> <span class="muted small">' + esc(srcName) + ' · Updated: ' + esc(stamp) + esc(partial) + '</span>';
   } catch (e) {
     if ($('#mktBody')) body.innerHTML = '<div style="color:var(--red);font-weight:700">Unable to retrieve current market data. (' + esc(e.message) + ')</div>';
     if (ts && $('#mktTs')) ts.innerHTML = '<span class="muted small">Data may be stale.</span>';
