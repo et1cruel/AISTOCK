@@ -181,18 +181,39 @@ async function getFacts(t) {
   throw lastErr;
 }
 function conceptObs(facts, names, unit) {
+  const r = conceptObsU(facts, names, unit);
+  return r.arr;
+}
+/* Unit-aware variant: also reports the filing currency (USD/EUR/KRW…).
+   ASML files in EUR, Korean filers in KRW — never assume USD. */
+function conceptObsU(facts, names, unit) {
   const spaces = [facts && facts.facts && facts.facts['us-gaap'], facts && facts.facts && facts.facts['ifrs-full'], facts && facts.facts && facts.facts['dei']];
   for (const n of names) {
     for (const sp of spaces) {
       const c = sp && sp[n];
       if (c && c.units) {
-        if (unit && c.units[unit]) return c.units[unit];
+        if (unit && c.units[unit]) return { arr: c.units[unit], unit };
         const k = Object.keys(c.units)[0];
-        if (k) return c.units[k];
+        if (k) return { arr: c.units[k], unit: k };
       }
     }
   }
-  return null;
+  return { arr: null, unit: null };
+}
+function ccyFromUnit(u) {
+  const s = String(u || '').toUpperCase();
+  if (s.indexOf('EUR') === 0) return 'EUR';
+  if (s.indexOf('KRW') === 0) return 'KRW';
+  if (s.indexOf('TWD') === 0) return 'TWD';
+  if (s.indexOf('JPY') === 0) return 'JPY';
+  if (s.indexOf('GBP') === 0) return 'GBP';
+  return 'USD';
+}
+const CCY_SYM = { USD: '$', EUR: '€', KRW: '₩', TWD: 'NT$', JPY: '¥', GBP: '£' };
+function fmtMCcy(n, ccy) {
+  if (n == null || isNaN(n)) return 'N/A';
+  const sym = CCY_SYM[ccy] || (ccy ? ccy + ' ' : '$');
+  return (n < 0 ? '-' : '') + sym + Math.abs(Number(n)).toFixed(1) + 'B';
 }
 function annualFY(obs) {
   if (!obs) return [];
@@ -249,7 +270,9 @@ async function getFundamentals(t) {
   if (cached) return cached;
   const facts = await getFacts(t);
   const cik = await getCIK(t);
-  const revObs = conceptObs(facts, REV_NAMES, 'USD');
+  const revU = conceptObsU(facts, REV_NAMES, 'USD');
+  const revObs = revU.arr;
+  const currency = ccyFromUnit(revU.unit);
   const niObs = conceptObs(facts, ['NetIncomeLoss'], 'USD');
   const epsObs = conceptObs(facts, ['EarningsPerShareDiluted'], 'USD/shares');
   const gpObs = conceptObs(facts, ['GrossProfit'], 'USD');
@@ -265,6 +288,7 @@ async function getFundamentals(t) {
   }
   const out = {
     cik,
+    currency,
     revA,
     revQ: qtrSeries(revObs),
     revTTM: ttmFromQ(revObs),
@@ -424,12 +448,223 @@ async function fillMarketOverview() {
     if (ts && $('#mktTs')) ts.innerHTML = '<span class="muted small">Data may be stale.</span>';
   }
 }
+/* ---------------- TRACKING TABLE ENGINE (live-first, validated) ---------
+   SOURCE PRIORITY: SEC EDGAR FY filings → TradingView TTM → N/A.
+   Never invented, never silently replaced by hard-coded demo values.
+   PERIODS: growth = YoY (FY preferred, else TTM labeled) · margins share
+   numerator/denominator period · FCF = OCF − CapEx (same FY frame) ·
+   P/E = live price ÷ TTM diluted EPS (Trailing; N/A when EPS ≤ 0).
+   CURRENCY: filing currency (ASML = EUR, price = USD ADR — labeled).
+   CACHE TTL: prices/TV ≤ 15 min · SEC companyfacts ≤ 7 d · SEC derived
+   ≤ 24 h (enforced by LiveCache; financials cached longer than prices).
+   ---------------------------------------------------------------------- */
+function fyPair(a) {
+  if (!a || a.length < 2) return null;
+  const cur = a[a.length - 1], prev = a[a.length - 2];
+  if (cur == null || prev == null || prev.val == null || cur.val == null || prev.val === 0) return null;
+  return { cur, prev, g: ((cur.val - prev.val) / Math.abs(prev.val)) * 100 };
+}
+function fyAt(a, frame) {
+  if (!a || !a.length) return null;
+  return (frame && a.find((x) => x.frame === frame)) || a[a.length - 1];
+}
+function fyFCF(f) {
+  const oc = f.ocfA || [], cx = f.capeA || [];
+  for (let i = oc.length - 1; i >= 0; i--) {
+    const m = cx.find((x) => x.frame === oc[i].frame);
+    if (m && oc[i].val != null && m.val != null) return { frame: oc[i].frame, val: oc[i].val - m.val, filed: oc[i].filed };
+  }
+  return null;
+}
+const ST_BADGE = {
+  VERIFIED: ['b-green', '🟢 VERIFIED'],
+  DELAYED: ['b-yellow', '🟡 DELAYED'],
+  STALE: ['b-orange', '🟠 STALE'],
+  ERROR: ['b-red', '🔴 DATA ERROR'],
+  DEMO: ['b-gray', '⚪ DEMO DATA'],
+};
+function stBadgeHTML(st, reason) {
+  const m = ST_BADGE[st] || ST_BADGE.ERROR;
+  return '<span class="badge ' + m[0] + '" title="' + esc(reason || m[1]) + '">' + m[1] + '</span>';
+}
+function tipHTML(metric, val, period, def, src, upd) {
+  return metric + '\nValue: ' + val + '\nPeriod: ' + (period || 'N/A') + '\nDefinition: ' + def + '\nSource: ' + src + '\nUpdated: ' + (upd || 'N/A');
+}
+async function getTrackingRow(t) {
+  const M = (v, period, tip) => ({ v, period, tip });
+  const NA_CELL = (metric, def, src, reason) => M(null, null, tipHTML(metric, 'N/A — ' + reason, null, def, src, null));
+  /* DEMO provider: explicitly labeled demo (allowed), never presented live. */
+  if (!DataService.liveOn()) {
+    const s = SEED[t];
+    return {
+      t, demo: true, status: 'DEMO', reason: 'Demo provider — illustrative figures only',
+      price: M(fmt$(s.price), 'DEMO', tipHTML('Price', fmt$(s.price), 'DEMO', 'Illustrative', 'Seed (demo)', null)),
+      revG: M(fmtPct(s.revGrowth), 'DEMO', tipHTML('Revenue Growth YoY', fmtPct(s.revGrowth), 'DEMO', 'YoY Revenue Growth', 'Seed (demo)', null)),
+      niG: M(fmtPct(s.epsGrowth), 'DEMO', tipHTML('Net Income Growth YoY', fmtPct(s.epsGrowth), 'DEMO', 'YoY Net Income Growth (EPS growth shown as proxy)', 'Seed (demo)', null)),
+      gm: M(fmtN(s.grossM) + '%', 'DEMO', tipHTML('Gross Margin', fmtN(s.grossM) + '%', 'DEMO', 'Gross Profit / Revenue × 100', 'Seed (demo)', null)),
+      nm: M(fmtN(s.netM) + '%', 'DEMO', tipHTML('Net Margin', fmtN(s.netM) + '%', 'DEMO', 'Net Income / Revenue × 100', 'Seed (demo)', null)),
+      fcf: M(fmtB(s.fcf), 'DEMO', tipHTML('FCF', fmtB(s.fcf), 'DEMO', 'Operating Cash Flow − Capital Expenditure', 'Seed (demo)', null)),
+      pe: M(fmtN(s.pe), 'DEMO', tipHTML('P/E (TTM)', fmtN(s.pe), 'DEMO', 'Price ÷ TTM Diluted EPS', 'Seed (demo)', null)),
+      fcfCcy: 'USD', risk: s.status.r[0],
+    };
+  }
+  let tv = null, sec = null, q = null;
+  try { tv = await getTVSnapshot(t); } catch (_) {}
+  try { const qq = await getQuotesLive([t]); q = (qq && qq[t]) || null; } catch (_) {}
+  try { sec = await getFundamentals(t); } catch (_) {}
+  const issues = [];
+  /* ---- price: timestamped Stooq preferred, else TV session ---- */
+  let price = null, chg = null, pStamp = null, pSrc = null;
+  if (q && q.close > 0) {
+    price = q.close; pStamp = (q.date || '') + ' ' + (q.time || '') + ' (delayed)'; pSrc = 'Stooq';
+    chg = q.open ? (((q.close - q.open) / q.open) * 100) : null;
+  } else if (tv && tv.close != null) {
+    price = tv.close; chg = tv.change; pStamp = 'latest session'; pSrc = 'TradingView';
+  }
+  if (price == null) issues.push('no price');
+  if (!pStamp) issues.push('no price timestamp');
+  /* ---- SEC FY preferred; TV TTM labeled fallback ---- */
+  const revP = sec ? fyPair(sec.revA) : null;
+  const niP = sec ? fyPair(sec.niA) : null;
+  const revL = sec && sec.revA && sec.revA.length ? sec.revA[sec.revA.length - 1] : null;
+  const ccy = (sec && sec.currency) || 'USD';
+  let revG, niG, gm, nm, fcf;
+  if (revP) {
+    revG = M(fmtPct(revP.g, 1), revP.cur.frame, tipHTML('Revenue Growth YoY', fmtPct(revP.g, 1), revP.cur.frame + ' vs ' + revP.prev.frame, 'YoY Revenue Growth = (cur − prev) ÷ |prev| × 100', 'SEC EDGAR', (revP.cur.filed || '').slice(0, 10)));
+  } else if (tv && tv.total_revenue_yoy_growth_ttm != null) {
+    revG = M(fmtPct(tv.total_revenue_yoy_growth_ttm, 1), 'TTM YoY', tipHTML('Revenue Growth YoY', fmtPct(tv.total_revenue_yoy_growth_ttm, 1), 'TTM YoY', 'YoY Revenue Growth (TTM)', 'TradingView', 'latest session'));
+  } else {
+    issues.push('no revenue period');
+    revG = NA_CELL('Revenue Growth YoY', 'YoY Revenue Growth', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
+  }
+  if (niP) {
+    niG = M(fmtPct(niP.g, 1), niP.cur.frame, tipHTML('Net Income Growth YoY', fmtPct(niP.g, 1), niP.cur.frame + ' vs ' + niP.prev.frame, 'YoY Net Income Growth = (cur − prev) ÷ |prev| × 100', 'SEC EDGAR', (niP.cur.filed || '').slice(0, 10)));
+  } else if (tv && tv.net_income_yoy_growth_ttm != null) {
+    niG = M(fmtPct(tv.net_income_yoy_growth_ttm, 1), 'TTM YoY', tipHTML('Net Income Growth YoY', fmtPct(tv.net_income_yoy_growth_ttm, 1), 'TTM YoY', 'YoY Net Income Growth (TTM)', 'TradingView', 'latest session'));
+  } else {
+    issues.push('no net income period');
+    niG = NA_CELL('Net Income Growth YoY', 'YoY Net Income Growth', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
+  }
+  if (revL) {
+    const gp = fyAt(sec.gpA, revL.frame), ni = fyAt(sec.niA, revL.frame);
+    if (gp && revL.val) {
+      const v = (gp.val / revL.val) * 100;
+      if (!isFinite(v) || Math.abs(v) > 1000) issues.push('gross margin out of range');
+      gm = M(fmtN(v, 1) + '%', gp.frame, tipHTML('Gross Margin', fmtN(v, 1) + '%', gp.frame, 'Gross Profit / Revenue × 100 (' + ccy + ')', 'SEC EDGAR', (gp.filed || '').slice(0, 10)));
+    } else if (tv && tv.gross_margin_ttm != null) {
+      gm = M(fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', tipHTML('Gross Margin', fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', 'Gross Profit / Revenue × 100', 'TradingView', 'latest session'));
+    } else { gm = NA_CELL('Gross Margin', 'Gross Profit / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.'); }
+    if (ni && revL.val) {
+      const v = (ni.val / revL.val) * 100;
+      if (!isFinite(v) || Math.abs(v) > 1000) issues.push('net margin out of range');
+      nm = M(fmtN(v, 1) + '%', ni.frame, tipHTML('Net Margin', fmtN(v, 1) + '%', ni.frame, 'Net Income / Revenue × 100 (' + ccy + ')', 'SEC EDGAR', (ni.filed || '').slice(0, 10)));
+    } else if (tv && tv.net_margin_ttm != null) {
+      nm = M(fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', tipHTML('Net Margin', fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', 'Net Income / Revenue × 100', 'TradingView', 'latest session'));
+    } else { nm = NA_CELL('Net Margin', 'Net Income / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.'); }
+  } else if (tv && (tv.gross_margin_ttm != null || tv.net_margin_ttm != null)) {
+    gm = tv.gross_margin_ttm != null ? M(fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', tipHTML('Gross Margin', fmtN(tv.gross_margin_ttm, 1) + '%', 'TTM', 'Gross Profit / Revenue × 100', 'TradingView', 'latest session')) : NA_CELL('Gross Margin', 'Gross Profit / Revenue × 100', 'TradingView', 'Unable to retrieve verified data.');
+    nm = tv.net_margin_ttm != null ? M(fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', tipHTML('Net Margin', fmtN(tv.net_margin_ttm, 1) + '%', 'TTM', 'Net Income / Revenue × 100', 'TradingView', 'latest session')) : NA_CELL('Net Margin', 'Net Income / Revenue × 100', 'TradingView', 'Unable to retrieve verified data.');
+  } else {
+    issues.push('no margin period');
+    gm = NA_CELL('Gross Margin', 'Gross Profit / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
+    nm = NA_CELL('Net Margin', 'Net Income / Revenue × 100', 'SEC EDGAR + TradingView', 'Unable to retrieve verified data.');
+  }
+  const fcfO = sec ? fyFCF(sec) : null;
+  if (fcfO) {
+    fcf = M(fmtMCcy(fcfO.val / 1e9, ccy), fcfO.frame + ' · ' + ccy, tipHTML('FCF', fmtMCcy(fcfO.val / 1e9, ccy), fcfO.frame, 'Operating Cash Flow − Capital Expenditure, same FY frame (' + ccy + ')', 'SEC EDGAR', (fcfO.filed || '').slice(0, 10)));
+  } else {
+    issues.push('no FCF period');
+    fcf = NA_CELL('FCF', 'Operating Cash Flow − Capital Expenditure', 'SEC EDGAR', 'Unable to retrieve verified data.');
+  }
+  /* ---- P/E (Trailing): live price ÷ TTM diluted EPS; N/A when EPS ≤ 0 ---- */
+  const eps = tv && tv.earnings_per_share_diluted_ttm != null ? { v: tv.earnings_per_share_diluted_ttm, src: 'TradingView' }
+    : (sec && sec.epsTTM ? { v: sec.epsTTM.val, src: 'SEC EDGAR (4Q sum)' } : null);
+  let pe;
+  if (price != null && eps && eps.v > 0) {
+    const v = price / eps.v;
+    if (!isFinite(v) || v <= 0) issues.push('P/E math invalid');
+    pe = M(fmtN(v, 1), 'TTM', tipHTML('P/E (TTM)', fmtN(v, 1), 'TTM', 'Trailing P/E = live price ÷ TTM diluted EPS ($' + fmtN(eps.v, 2) + ', ' + eps.src + ')', 'Calculated', pStamp));
+  } else {
+    if (!(eps && eps.v > 0)) issues.push('EPS ≤ 0 or missing → P/E N/A');
+    pe = NA_CELL('P/E (TTM)', 'Trailing P/E = live price ÷ TTM diluted EPS', 'TradingView + SEC EDGAR', eps && eps.v <= 0 ? 'EPS ≤ 0' : 'Unable to retrieve verified data.');
+  }
+  /* ---- status ---- */
+  const hasSEC = !!(revL && revL.val);
+  let status, reason;
+  if (price == null && !hasSEC && !tv) { status = 'ERROR'; reason = 'Unable to retrieve verified data.'; }
+  else {
+    let staleWhy = '';
+    if (q && q.date) {
+      const age = (Date.now() - new Date(q.date + 'T00:00:00Z').getTime()) / 864e5;
+      if (age > 5) staleWhy = 'Price session ' + q.date + ' is > 5 days old.';
+    }
+    if (!staleWhy && revL && revL.end) {
+      const ageM = (Date.now() - new Date(revL.end).getTime()) / 2592e6;
+      if (ageM > 18) staleWhy = 'Latest FY ended ' + revL.end + ' (> 18 mo).';
+    }
+    if (staleWhy) { status = 'STALE'; reason = staleWhy; }
+    else if (price != null && hasSEC) { status = 'VERIFIED'; reason = 'Live price + SEC ' + revL.frame + ' validated.'; }
+    else { status = 'DELAYED'; reason = 'Live price; fundamentals partial (TTM provider mix).'; }
+  }
+  if (issues.length && status === 'VERIFIED' && (price == null || !hasSEC)) status = 'DELAYED';
+  return {
+    t, status, reason: reason + (issues.length ? ' Checks: ' + issues.join('; ') : ''),
+    price: M(price != null ? fmt$(price) + (chg != null ? ' <span class="small" style="color:' + (chg >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (chg >= 0 ? '▲' : '▼') + ' ' + fmtN(Math.abs(chg), 2) + '%</span>' : '') : null, pStamp, tipHTML('Price', price != null ? fmt$(price) : 'N/A', pStamp, 'Latest available market price (delayed session)', pSrc || 'N/A', pStamp)),
+    revG, niG, gm, nm, fcf, pe, fcfCcy: ccy, risk: SEED[t].status.r[0],
+  };
+}
+function trackCell(m) {
+  if (!m || m.v == null) {
+    const tip = (m && m.tip) || 'Data unavailable';
+    return '<td class="muted" title="' + esc(tip) + '">N/A</td>';
+  }
+  return '<td class="num" title="' + esc(m.tip || '') + '">' + m.v + (m.period ? '<div class="muted small" style="font-weight:400;font-size:11px">' + esc(m.period) + '</div>' : '') + '</td>';
+}
+function trackRowHTML(r) {
+  return '<tr><td><b><a href="#/stock/' + r.t + '">' + r.t + '</a></b></td>'
+    + trackCell(r.price) + trackCell(r.revG) + trackCell(r.niG) + trackCell(r.gm) + trackCell(r.nm) + trackCell(r.fcf) + trackCell(r.pe)
+    + '<td>' + esc(r.risk) + '</td>'
+    + '<td>' + stBadgeHTML(r.status, r.reason) + '</td>'
+    + '<td><button class="btn ghost sm" data-watch="' + r.t + '">ลบออก</button></td></tr>';
+}
+async function fillTrackingTable() {
+  const tb = $('#trackBody');
+  if (!tb) return;
+  const list = [...watchlist].filter((t) => SEED[t]);
+  if (!DataService.liveOn()) {
+    tb.innerHTML = list.map((t) => trackRowHTML(demoTrackRow(t))).join('');
+  } else {
+    const rows = await Promise.all(list.map(async (t) => {
+      try { return await getTrackingRow(t); }
+      catch (e) { return { t, status: 'ERROR', reason: 'Unable to retrieve verified data (' + e.message + ')', price: { v: null, tip: 'DATA ERROR' }, revG: { v: null }, niG: { v: null }, gm: { v: null }, nm: { v: null }, fcf: { v: null }, pe: { v: null }, risk: SEED[t].status.r[0] }; }
+    }));
+    if (!$('#trackBody')) return;
+    tb.innerHTML = rows.map(trackRowHTML).join('');
+  }
+  const ts = $('#trackTs');
+  if (ts) {
+    ts.innerHTML = DataService.liveOn()
+      ? '<span class="muted small">Price: Stooq/TradingView (≤15 min cache) · Fundamentals: SEC EDGAR FY + TV TTM (≤24 h cache) · Hover cells for source/period</span>'
+      : '<span class="badge b-gray">⚪ DEMO DATA</span> <span class="muted small">Demo provider — switch to Live in Settings</span>';
+  }
+  const src = $('#trackSrc');
+  if (src) {
+    src.innerHTML = '<span class="tag-fact">ข้อเท็จจริง</span>ที่มา: SEC EDGAR (งบ FY) + TradingView (ราคา/TTM) · ASML financials in EUR, ADR price in USD · P/E = Trailing (live price ÷ TTM diluted EPS; N/A if EPS ≤ 0) · FCF = OCF − CapEx · <span class="badge b-green">VERIFIED</span> = ราคาสด + งบ SEC ตรงงวด · <span class="badge b-yellow">DELAYED</span> = ราคาสดแต่งบบางส่วน · <span class="badge b-orange">STALE</span> = ข้อมูลเก่า · <span class="badge b-red">DATA ERROR</span> = ดึงไม่ได้ (N/A)';
+  }
+  $$('#trackBody [data-watch]').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleWatch(b.dataset.watch); });
+}
+function demoTrackRow(t) {
+  const s = SEED[t];
+  const tip = 'DEMO DATA — illustrative only. Switch provider to Live in Settings.';
+  const c = (v, p) => ({ v, period: 'DEMO', tip });
+  return { t, status: 'DEMO', reason: tip, price: c(fmt$(s.price)), revG: c(fmtPct(s.revGrowth)), niG: c(fmtPct(s.epsGrowth)), gm: c(fmtN(s.grossM) + '%'), nm: c(fmtN(s.netM) + '%'), fcf: c(fmtB(s.fcf)), pe: c(fmtN(s.pe)), risk: s.status.r[0] };
+}
 /* ---------------- TRADINGVIEW snapshot (public scanner API, real data) -- */
-const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'net_income_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
+const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'total_revenue_yoy_growth_ttm', 'earnings_per_share_diluted_yoy_growth_ttm', 'net_income_ttm', 'net_income_yoy_growth_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
 const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', SKHY: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ' };
 async function getTVSnapshot(t, force) {
   if (!force) {
-    const cached = LiveCache.get('tv_' + t, 15 * 60e3);
+    const cached = LiveCache.get('tv2_' + t, 15 * 60e3);
     if (cached) return cached;
   }
   const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + (TV_EX[t] || 'NASDAQ') + ':' + t + '&fields=' + TV_COLS.join(','), 12000);
@@ -439,7 +674,7 @@ async function getTVSnapshot(t, force) {
        fallback is more honest than the wrong logo. */
     if (j.logoid && !(t === 'SKHY' && /telecom/i.test(j.logoid))) { const m = store.get('asrt_logos', {}); m[t] = j.logoid; store.set('asrt_logos', m); }
   } catch (_) {}
-  LiveCache.set('tv_' + t, j);
+  LiveCache.set('tv2_' + t, j);
   return j;
 }
 function tvRating(v) {
@@ -718,13 +953,12 @@ function renderDashboard() {
     + '</div>'
     + '<div class="toolbar" style="margin-bottom:10px" id="quickChips">' + TICKERS.map((t) => '<button class="chip-sel" data-goto="#/stock/' + t + '">' + t + '</button>').join('') + '</div>'
     + '<div class="stock-grid">' + rows.map(cardHTML).join('') + '</div>'
-    + '<div class="card sec"><div class="sec-head"><h3>ตารางหุ้นติดตาม</h3>' + freshness() + '</div><div class="table-wrap"><table aria-label="ตารางหุ้นติดตาม"><thead><tr><th>หุ้น</th><th>ราคา</th><th>รายได้โต</th><th>กำไรโต</th><th>มาร์จิ้นขั้นต้น</th><th>มาร์จิ้นดำเนินงาน</th><th>FCF</th><th>P/E</th><th>ความเสี่ยง</th><th></th></tr></thead><tbody>'
-    + rows.map((t) => { const s = SEED[t]; return '<tr><td><b><a href="#/stock/' + t + '">' + t + '</a></b></td><td class="num">' + fmt$(s.price) + '</td><td class="num">' + fmtPct(s.revGrowth) + '</td><td class="num">' + fmtPct(s.epsGrowth) + '</td><td class="num">' + fmtN(s.grossM) + '%</td><td class="num">' + fmtN(s.opM) + '%</td><td class="num">' + fmtB(s.fcf) + '</td><td class="num">' + fmtN(s.pe) + '</td><td>' + s.status.r[0] + '</td><td><button class="btn ghost sm" data-watch="' + t + '">ลบออก</button></td></tr>'; }).join('')
-    + '</tbody></table></div>' + srcLine({ src: 'ชุดข้อมูลตั้งต้น · โครง Tier 1/2 (ตัวเลข demo)' }) + '</div>'
+    + '<div class="card sec"><div class="sec-head"><h3>ตารางหุ้นติดตาม — ตัวเลขสดพร้อมที่มา</h3><span id="trackTs"><span class="muted small">กำลังโหลด…</span></span></div><div class="table-wrap"><table aria-label="ตารางหุ้นติดตาม"><thead><tr><th>หุ้น</th><th>ราคา (สด)</th><th>รายได้โต YoY</th><th>กำไรโต YoY</th><th>Gross Margin</th><th>Net Margin</th><th>FCF</th><th>P/E (TTM)</th><th>ความเสี่ยง</th><th>Data Status</th><th></th></tr></thead><tbody id="trackBody"><tr><td colspan="11" class="muted">กำลังดึงราคาสด + งบ SEC + ตรวจสอบความถูกต้อง…</td></tr></tbody></table></div><div class="src-line" id="trackSrc"></div></div>'
     + '<div class="card sec"><h3>คำถามช่วยตัดสินใจ</h3><ul class="q-list"><li>อะไรต้องเป็นจริง บริษัทถึงจะเติบโตต่อ?</li><li>อะไรจะพิสูจน์ว่าสมมติฐานเราผิด?</li><li>ตลาดคาดหวังอะไรไว้ในราคานี้แล้ว?</li><li>ราคาปัจจุบันสะท้อนการเติบโตไปมากแค่ไหน?</li><li>บริษัทสร้างเงินสดได้จริงหรือไม่ — ดู มาร์จิ้น FCF และแนวโน้ม</li></ul></div>';
   paintSparks();
   fillLivePrices();
   fillMarketOverview();
+  fillTrackingTable();
   $('#sortSel').onchange = (e) => {
     const k = e.target.value;
     const sorted = [...watchlist].sort((a, b) => k === 'growth' ? SEED[b].revGrowth - SEED[a].revGrowth : k === 'valuation' ? SEED[a].fwdPE - SEED[b].fwdPE : k === 'mcap' ? SEED[b].mcap - SEED[a].mcap : a.localeCompare(b));
