@@ -992,11 +992,23 @@ function pfDefault() {
       { t: 'AMD', value: 10.16, day: 4.93, cost: 0, shares: 0 },
       { t: 'COST', value: 9.20, day: 2.99, cost: 0, shares: 0 },
       { t: 'AMZN', value: 7.69, day: 2.12, cost: 0, shares: 0 },
-      { t: 'อื่นๆ', value: 5.37, day: 0, cost: 5.35, shares: 0 },
+      { t: 'GOOGL', value: 5.37, day: 0, cost: 5.35, shares: 0.0156433 },
     ],
   };
 }
-function getMyPort() { const d = store.get('asrt_myport', null); return d && d.holdings ? d : pfDefault(); }
+function getMyPort() {
+  const d = store.get('asrt_myport', null);
+  const p = d && d.holdings ? d : pfDefault();
+  /* โอนข้อมูลเก่า: 'อื่นๆ' 5.37 = GOOGL 0.0156433 หุ้น ทุน $342/หุ้น */
+  const oi = p.holdings.findIndex((h) => h.t === 'อื่นๆ');
+  if (oi >= 0 && !p.holdings.some((h) => h.t === 'GOOGL')) {
+    p.holdings[oi].t = 'GOOGL';
+    if (!+p.holdings[oi].shares) p.holdings[oi].shares = 0.0156433;
+    if (!+p.holdings[oi].cost) p.holdings[oi].cost = 5.35;
+    saveMyPort(p);
+  }
+  return p;
+}
 function saveMyPort(p) { store.set('asrt_myport', p); }
 function pfCalc(p) {
   const val = p.holdings.reduce((a, h) => a + (+h.value || 0), 0);
@@ -1053,6 +1065,7 @@ function renderPortfolio() {
           + '<label class="fl">% วันนี้<input type="number" step="0.01" data-f="day" data-i="' + idx + '" value="' + (+h.day || 0) + '"></label>'
           + '<label class="fl">ต้นทุน (USD)<input type="number" step="0.01" data-f="cost" data-i="' + idx + '" value="' + (+h.cost || 0) + '"></label>'
           + '<label class="fl">หุ้น (ถ้ามี → ดึงราคาสด)<input type="number" step="any" data-f="shares" data-i="' + idx + '" value="' + (+h.shares || 0) + '"></label>'
+          + (+h.shares > 0 && +h.cost > 0 ? '<div class="muted small" style="align-self:end">ทุน/หุ้น: $' + fmtN(+h.cost / +h.shares, 2) + '</div>' : '')
           + '<button class="btn ghost sm" data-pfdel="' + idx + '">ลบ</button></div>' : '')
         + '</div>';
     }).join('') + '</div>'
