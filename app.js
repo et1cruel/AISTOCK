@@ -283,10 +283,12 @@ async function getFundamentals(t) {
   LiveCache.set('fun_' + t, out);
   return out;
 }
-async function getQuotesLive(tickers) {
+async function getQuotesLive(tickers, force) {
   const key = 'quotes_' + tickers.slice().sort().join(',');
-  const cached = LiveCache.get(key, 15 * 60e3);
-  if (cached) return cached;
+  if (!force) {
+    const cached = LiveCache.get(key, 15 * 60e3);
+    if (cached) return cached;
+  }
   const syms = tickers.map((t) => STOOQ_SYM[t]).filter(Boolean).join(',');
   if (!syms) throw new Error('No Stooq symbols');
   const txt = await fetchText('https://stooq.com/q/l/?s=' + syms + '&f=sd2t2ohlcv&h&e=csv', 12000);
@@ -320,9 +322,11 @@ async function getHistoryLive(t, interval) {
    Field reference = the same columns shown on tradingview.com/symbols. -- */
 const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'net_income_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
 const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ' };
-async function getTVSnapshot(t) {
-  const cached = LiveCache.get('tv_' + t, 15 * 60e3);
-  if (cached) return cached;
+async function getTVSnapshot(t, force) {
+  if (!force) {
+    const cached = LiveCache.get('tv_' + t, 15 * 60e3);
+    if (cached) return cached;
+  }
   const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + (TV_EX[t] || 'NASDAQ') + ':' + t + '&fields=' + TV_COLS.join(','), 12000);
   if (!j || j.close == null) throw new Error('Empty TradingView response');
   try {
@@ -554,6 +558,7 @@ function toggleWatch(t) { watchlist = inWatch(t) ? watchlist.filter((x) => x !==
 /* ---------------- ROUTER -------------------------------------------- */
 const view = () => $('#view');
 function route() {
+  stopPfAuto();
   const h = location.hash || '#/';
   $$('#mainNav a, .bottomnav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === h.split('/').slice(0, 2).join('/') || (h === '#/' && a.getAttribute('href') === '#/')));
   $('#menuBtn') && $('.sidebar').classList.remove('open');
@@ -561,8 +566,7 @@ function route() {
   const parts = h.replace('#/', '').split('/');
   if (parts[0] === 'stock' && parts[1]) return renderStock(parts[1].toUpperCase());
   if (parts[0] === 'portfolio') return renderPortfolio();
-  if (parts[0] === 'rankings') return renderRankings();
-  if (parts[0] === 'compare') return renderCompare();
+  if (parts[0] === 'rankings') return renderRankings();  if (parts[0] === 'compare') return renderCompare();
   if (parts[0] === 'valuation') return renderValuation(parts[1]);
   if (parts[0] === 'industry') return renderIndustry();
   if (parts[0] === 'tools') return renderTools();
@@ -1014,6 +1018,7 @@ const pfLogo = (t) => {
 function pfLogoFail(img) { img.style.display = 'none'; const s = img.nextElementSibling; if (s) s.style.display = 'grid'; }
 const pfUp = (v) => (v >= 0 ? 'var(--green)' : 'var(--red)');
 function renderPortfolio() {
+  try { pfAuto = localStorage.getItem('asrt_pfauto') !== '0'; } catch (_) {}
   const p = getMyPort();
   const c = pfCalc(p);
   const fx = +p.fx || 33.43;
@@ -1025,7 +1030,7 @@ function renderPortfolio() {
   else if (p.sort === 'name') rows.sort((a, b) => String(a.t).localeCompare(String(b.t)));
   else rows.sort((a, b) => (+b.value || 0) - (+a.value || 0));
   view().innerHTML = '<div class="hero"><div><h1>💼 พอร์ตของฉัน</h1><p>กรอกมูลค่า ทุน และ % เองได้ — ตัวเลขรวมคำนวณให้ทันที เก็บในเครื่อง</p></div>'
-    + '<div class="toolbar"><button class="btn sm" id="pfLive">🔄 อัปเดตราคาสด</button><button class="btn ghost sm" id="pfReset">รีเซ็ตเป็นข้อมูลจริงของฉัน</button></div></div>'
+    + '<div class="toolbar"><button class="btn sm" id="pfLive">🔄 อัปเดตราคาสด</button><button class="chip-sel ' + (pfAuto ? 'on' : '') + '" id="pfAutoBtn" title="รีเฟรชราคาอัตโนมัติทุก 60 วินาที">' + (pfAuto ? '⏸ ออโต้: เปิด' : '▶ ออโต้: ปิด') + '</button><button class="btn ghost sm" id="pfReset">รีเซ็ตเป็นข้อมูลจริงของฉัน</button><span class="muted small" id="pfUpdated"></span></div></div>'
     + '<div class="card"><div class="num" style="font-size:34px;font-weight:900">' + fmt$(c.val) + ' <span class="muted small">USD</span></div>'
     + '<div class="muted">≈ ' + Math.round(c.val * fx).toLocaleString('th-TH') + ' THB <span style="margin-left:8px">🇺🇸 1 USD = <input id="pfFx" type="number" step="0.01" value="' + fx + '" style="width:84px;display:inline-block;padding:4px 8px" aria-label="อัตราแลกเปลี่ยน"> THB</span> <span class="muted small" id="pfFxNote"></span></div>'
     + '<div class="muted" style="margin-top:4px">~ ต้นทุนรวม: <input id="pfCost" type="number" step="0.01" value="' + (+p.totalCost || 0) + '" style="width:110px;display:inline-block;padding:4px 8px" aria-label="ต้นทุนรวม USD"> USD</div>'
@@ -1060,7 +1065,8 @@ function renderPortfolio() {
   $('#pfFx').onchange = (e) => { const q = getMyPort(); q.fx = +e.target.value || q.fx; saveMyPort(q); renderPortfolio(); };
   $('#pfAdd').onclick = () => { const q = getMyPort(); const t = $('#pfNew').value; if (q.holdings.some((h) => h.t === t)) return alert('มี ' + t + ' แล้ว'); q.holdings.push({ t, value: 0, day: 0, cost: 0, shares: 0 }); pfOpen = q.holdings.length - 1; saveMyPort(q); renderPortfolio(); };
   $('#pfReset').onclick = () => { if (confirm('รีเซ็ตเป็นข้อมูลพอร์ตจริงของฉัน?')) { pfOpen = -1; saveMyPort(pfDefault()); renderPortfolio(); } };
-  $('#pfLive').onclick = pfLiveRefresh;
+  $('#pfLive').onclick = () => pfLiveRefresh(false);
+  $('#pfAutoBtn').onclick = () => { pfAuto = !pfAuto; try { localStorage.setItem('asrt_pfauto', pfAuto ? '1' : '0'); } catch (_) {} renderPortfolio(); };
   $$('[data-pfedit]').forEach((b) => b.onclick = () => { pfOpen = +b.dataset.pfedit === pfOpen ? -1 : +b.dataset.pfedit; renderPortfolio(); });
   $$('[data-pfdel]').forEach((b) => b.onclick = () => { const q = getMyPort(); q.holdings.splice(+b.dataset.pfdel, 1); pfOpen = -1; saveMyPort(q); renderPortfolio(); });
   $$('#pfRows input[data-f]').forEach((inp) => inp.onchange = () => {
@@ -1069,6 +1075,7 @@ function renderPortfolio() {
     saveMyPort(q); renderPortfolio();
   });
   if (!pfFxDone) { pfFxDone = true; pfLoadFx(); }
+  startPfAuto();
 }
 let pfFxDone = false;
 async function pfLoadFx() {
@@ -1086,23 +1093,43 @@ async function pfLoadFx() {
     }
   } catch (_) { const n = $('#pfFxNote'); if (n) n.textContent = 'เรทจำ/กรอกเอง'; }
 }
-async function pfLiveRefresh() {
-  if (!DataService.liveOn()) return alert('เปิดโหมด Live ก่อน (ตั้งค่า)');
+async function pfLiveRefresh(quiet) {
+  if (!DataService.liveOn()) { if (!quiet) return alert('เปิดโหมด Live ก่อน (ตั้งค่า)'); else return; }
   const btn = $('#pfLive');
-  if (btn) btn.textContent = '⏳ กำลังดึง…';
+  if (btn && !quiet) btn.textContent = '⏳ กำลังดึง…';
   const p = getMyPort();
   let n = 0;
   for (const h of p.holdings) {
     if (+h.shares > 0 && TV_EX[h.t]) {
       try {
-        const tv = await getTVSnapshot(h.t);
+        const tv = await getTVSnapshot(h.t, true);
         if (tv && tv.close != null) { h.value = +(+h.shares * tv.close).toFixed(2); if (tv.change != null) h.day = +tv.change.toFixed(2); n++; }
       } catch (_) {}
     }
   }
   saveMyPort(p);
+  if (!location.hash.startsWith('#/portfolio')) return;
   renderPortfolio();
-  alert(n ? 'อัปเดตราคาสด ' + n + ' ตัว (จากจำนวนหุ้น)' : 'ไม่มีหุ้นที่ใส่จำนวนหุ้นไว้ — กรอกช่อง "หุ้น" ใน ✎ ของแต่ละตัวก่อน');
+  const ts2 = $('#pfUpdated');
+  if (ts2) ts2.textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH') + (quiet ? ' · อัตโนมัติทุก 60 วิ' : '');
+  if (!quiet) alert(n ? 'อัปเดตราคาสด ' + n + ' ตัว (จากจำนวนหุ้น)' : 'ไม่มีหุ้นที่ใส่จำนวนหุ้นไว้ — กรอกช่อง "หุ้น" ใน ✎ ของแต่ละตัวก่อน');
+}
+/* Auto-refresh ทุก 60 วิ: หยุดเองเมื่อซ่อนแท็บ / ออกจากหน้า / กำลังแก้ */
+let pfTimer = null, pfAuto = true;
+function stopPfAuto() { if (pfTimer) { clearInterval(pfTimer); pfTimer = null; } }
+function startPfAuto() {
+  stopPfAuto();
+  if (!pfAuto) return;
+  pfTimer = setInterval(async () => {
+    if (!pfAuto || document.visibilityState !== 'visible') return;
+    if (!location.hash.startsWith('#/portfolio')) { stopPfAuto(); return; }
+    if (pfOpen !== -1) return;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA')) return;
+    await pfLiveRefresh(true);
+    const ts = $('#pfUpdated');
+    if (ts) ts.textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ' · อัตโนมัติทุก 60 วิ';
+  }, 60000);
 }
 
 /* ---------------- RANKINGS (จัดอันดับหุ้นน่าลงทุน) -------------------- */
