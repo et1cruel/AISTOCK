@@ -64,6 +64,19 @@ const SEED = {
     scen: { bull: { rev: '+30% CAGR 3Y', margin: 'OPM ~38%', note: 'HBM supercycle.' }, base: { rev: '+15% CAGR 3Y', margin: 'OPM ~26%', note: 'Normal cycle.' }, bear: { rev: '-5% CAGR 3Y', margin: 'OPM ~12%', note: 'Oversupply.' } },
     status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟡 วัฏจักร', 'b-yellow'], v: ['🟢 เหมาะสม', 'b-green'], r: ['🟠 กลาง-สูง', 'b-orange'], q: ['🟢 สูง', 'b-green'] },
     src: 'Micron Investor Relations (ตัวเลข demo)' },
+  SKHY: { name: 'SK hynix Inc. (ADR)', sector: 'Technology', industry: 'Memory (DRAM/NAND)', price: 195.13, mcap: 980.9, revGrowth: 28.1, epsGrowth: 88.5, grossM: 48.2, opM: 38.5, fcf: 8.5, fcfM: 13.7, pe: 12.7, fwdPE: 8.4, peg: 0.4, ps: 15.8, evEbitda: 7.2, pFCF: 115.4, fcfYield: 0.9, hi52: 199.87, lo52: 124.80, divY: 0.0, roe: 24.6, roic: 16.8, netM: 32.4, cash: 21.4, debt: 18.2, vol: 46, cagr5: 24.5,
+    desc: 'South Korean memory maker (NASDAQ ADR since Jul 2026); #2 DRAM producer and HBM leader supplying NVIDIA AI GPUs.',
+    segments: [['DRAM', 72], ['NAND', 24], ['Foundry / Other', 4]],
+    geo: [['China', 32], ['United States', 28], ['Korea', 12], ['Other', 28]],
+    bizModel: 'Memory fabs in Korea + China; HBM premium mix on top of commodity DRAM/NAND cycles.',
+    customers: 'NVIDIA, hyperscalers, Apple, PC/mobile OEMs',
+    rev5y: [37.5, 34.6, 25.2, 48.4, 62.0], eps5y: [2.1, 0.8, -1.4, 5.2, 9.8], fcf5y: [6.2, 3.1, -2.8, 4.5, 8.5],
+    moat: [['HBM leadership', 'แข็งแกร่งมาก', 'HBM3E/HBM4 qualified on NVIDIA platforms ahead of peers.'], ['Scale', 'แข็งแกร่ง', 'Top-3 memory maker; fab capex scale.'], ['Process tech', 'แข็งแกร่ง', 'Advanced DRAM nodes + 321L NAND ramps.'], ['Switching Cost', 'ปานกลาง', 'HBM qualification is sticky; commodity DRAM less so.']],
+    risks: [['Cyclicality', 'สูง', 'ผลกระทบสูง', 'Memory downturns can cut revenue 30–50%.'], ['Customer concentration', 'สูง', 'ผลกระทบสูง', 'NVIDIA + hyperscalers dominate HBM demand.'], ['Capex intensity', 'สูง', 'ผลกระทบกลาง', 'Fabs + HBM capacity need sustained capex.'], ['Geopolitics', 'กลาง', 'ผลกระทบกลาง', 'Export controls; China exposure.'], ['Short price history', 'ต่ำ', 'ผลกระทบต่ำ', 'NASDAQ ADR listed Jul 2026.']],
+    catalysts: ['HBM4 qualification + share gains', 'DRAM contract price recovery', 'AI server demand growth', 'Industry capacity discipline'],
+    scen: { bull: { rev: '+30% CAGR 3Y', margin: 'OPM ~45%', note: 'HBM supercycle + pricing power.' }, base: { rev: '+15% CAGR 3Y', margin: 'OPM ~35%', note: 'Normal upcycle.' }, bear: { rev: '-10% CAGR 3Y', margin: 'OPM ~18%', note: 'Memory oversupply.' } },
+    status: { g: ['🔥 แข็งแกร่ง', 'b-green'], f: ['🟡 วัฏจักร', 'b-yellow'], v: ['🟢 เหมาะสม', 'b-green'], r: ['🟠 กลาง-สูง', 'b-orange'], q: ['🟢 สูง', 'b-green'] },
+    src: 'SK hynix IR + TradingView (ตัวเลข demo)' },
   ASML: { name: 'ASML Holding N.V.', sector: 'Technology', industry: 'Semiconductor Equipment', price: 985.4, mcap: 388.5, revGrowth: 14.2, epsGrowth: 12.8, grossM: 52.4, opM: 34.2, fcf: 8.4, fcfM: 28.5, pe: 38.2, fwdPE: 32.5, peg: 1.8, ps: 13.2, evEbitda: 28.4, pFCF: 46.2, fcfYield: 2.2, hi52: 1108.0, lo52: 645.2, divY: 0.7, roe: 62.4, roic: 38.5, netM: 28.4, cash: 7.2, debt: 4.5, vol: 30, cagr5: 22.4,
     desc: 'Sole supplier of EUV lithography machines that print the world\'s most advanced chips.',
     segments: [['Lithography Systems', 82], ['Services / Field Options', 18]],
@@ -137,8 +150,8 @@ async function fetchText(url, ms) {
   try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url); return await r.text(); }
   finally { clearTimeout(t); }
 }
-const STOOQ_SYM = { NVDA: 'nvda.us', AVGO: 'avgo.us', MU: 'mu.us', ASML: 'asml.us', AMD: 'amd.us', GOOGL: 'googl.us', AMZN: 'amzn.us', COST: 'cost.us', VOO: 'voo.us', BTC: 'btcusd' };
-const CIK_FALLBACK = { NVDA: 1045810, AVGO: 1730168, MU: 723125, ASML: 937966, AMD: 2488, GOOGL: 1652044, AMZN: 1018724 };
+const STOOQ_SYM = { NVDA: 'nvda.us', AVGO: 'avgo.us', MU: 'mu.us', SKHY: 'skhy.us', ASML: 'asml.us', AMD: 'amd.us', GOOGL: 'googl.us', AMZN: 'amzn.us', COST: 'cost.us', VOO: 'voo.us', BTC: 'btcusd' };
+const CIK_FALLBACK = { NVDA: 1045810, AVGO: 1730168, MU: 723125, SKHY: 2120882, ASML: 937966, AMD: 2488, GOOGL: 1652044, AMZN: 1018724 };
 async function getCIK(t) {
   let map = LiveCache.get('cikmap', 30 * 864e5);
   if (!map) {
@@ -413,7 +426,7 @@ async function fillMarketOverview() {
 }
 /* ---------------- TRADINGVIEW snapshot (public scanner API, real data) -- */
 const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'net_income_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
-const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ' };
+const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', SKHY: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ' };
 async function getTVSnapshot(t, force) {
   if (!force) {
     const cached = LiveCache.get('tv_' + t, 15 * 60e3);
@@ -422,7 +435,9 @@ async function getTVSnapshot(t, force) {
   const j = await fetchJSON('https://scanner.tradingview.com/symbol?symbol=' + (TV_EX[t] || 'NASDAQ') + ':' + t + '&fields=' + TV_COLS.join(','), 12000);
   if (!j || j.close == null) throw new Error('Empty TradingView response');
   try {
-    if (j.logoid) { const m = store.get('asrt_logos', {}); m[t] = j.logoid; store.set('asrt_logos', m); }
+    /* SKHY: TV returns the SK Telecom logo id for this new ADR — a letter
+       fallback is more honest than the wrong logo. */
+    if (j.logoid && !(t === 'SKHY' && /telecom/i.test(j.logoid))) { const m = store.get('asrt_logos', {}); m[t] = j.logoid; store.set('asrt_logos', m); }
   } catch (_) {}
   LiveCache.set('tv_' + t, j);
   return j;
@@ -451,7 +466,7 @@ const RANK_PRESETS = [
 let rankPreset = 'rev', rankMcap = 10000000000, rankEx = ['NASDAQ', 'NYSE'];
 /* สำรองเมื่อ POST โดนบล็อก: สแกนหุ้นใหญ่ ~50 ตัวด้วย GET ตรง (ไม่ preflight) */
 const RANK_UNIVERSE = [
-  ['NASDAQ', 'NVDA'], ['NASDAQ', 'AVGO'], ['NASDAQ', 'MU'], ['NASDAQ', 'ASML'], ['NASDAQ', 'AMD'], ['NASDAQ', 'GOOGL'], ['NASDAQ', 'AMZN'], ['NASDAQ', 'COST'], ['NASDAQ', 'AAPL'], ['NASDAQ', 'MSFT'], ['NASDAQ', 'META'], ['NASDAQ', 'TSLA'], ['NASDAQ', 'NFLX'], ['NASDAQ', 'ADBE'], ['NASDAQ', 'INTC'], ['NASDAQ', 'QCOM'], ['NASDAQ', 'AMAT'], ['NASDAQ', 'CSCO'], ['NASDAQ', 'ARM'], ['NASDAQ', 'PLTR'], ['NASDAQ', 'TXN'], ['NASDAQ', 'GILD'], ['NASDAQ', 'AMGN'], ['NASDAQ', 'PYPL'], ['NASDAQ', 'MELI'], ['NASDAQ', 'ABNB'], ['NASDAQ', 'CRWD'], ['NASDAQ', 'PANW'], ['NASDAQ', 'SNOW'], ['NASDAQ', 'DDOG'],
+  ['NASDAQ', 'NVDA'], ['NASDAQ', 'AVGO'], ['NASDAQ', 'MU'], ['NASDAQ', 'SKHY'], ['NASDAQ', 'ASML'], ['NASDAQ', 'AMD'], ['NASDAQ', 'GOOGL'], ['NASDAQ', 'AMZN'], ['NASDAQ', 'COST'], ['NASDAQ', 'AAPL'], ['NASDAQ', 'MSFT'], ['NASDAQ', 'META'], ['NASDAQ', 'TSLA'], ['NASDAQ', 'NFLX'], ['NASDAQ', 'ADBE'], ['NASDAQ', 'INTC'], ['NASDAQ', 'QCOM'], ['NASDAQ', 'AMAT'], ['NASDAQ', 'CSCO'], ['NASDAQ', 'ARM'], ['NASDAQ', 'PLTR'], ['NASDAQ', 'TXN'], ['NASDAQ', 'GILD'], ['NASDAQ', 'AMGN'], ['NASDAQ', 'PYPL'], ['NASDAQ', 'MELI'], ['NASDAQ', 'ABNB'], ['NASDAQ', 'CRWD'], ['NASDAQ', 'PANW'], ['NASDAQ', 'SNOW'], ['NASDAQ', 'DDOG'],
   ['NYSE', 'ORCL'], ['NYSE', 'CRM'], ['NYSE', 'JPM'], ['NYSE', 'V'], ['NYSE', 'MA'], ['NYSE', 'WMT'], ['NYSE', 'HD'], ['NYSE', 'PG'], ['NYSE', 'KO'], ['NYSE', 'PEP'], ['NYSE', 'DIS'], ['NYSE', 'NKE'], ['NYSE', 'MCD'], ['NYSE', 'JNJ'], ['NYSE', 'XOM'], ['NYSE', 'CVX'], ['NYSE', 'UNH'], ['NYSE', 'LLY'], ['NYSE', 'ABBV'], ['NYSE', 'MRK'], ['NYSE', 'TMO'], ['NYSE', 'CAT'], ['NYSE', 'GE'], ['NYSE', 'SHOP'], ['NYSE', 'UBER'], ['NYSE', 'LIN'],
 ];
 async function tvScanUniverse(preset) {
@@ -572,7 +587,7 @@ const store = {
   get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch { return d; } },
   set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
 };
-let watchlist = store.get('asrt_watch', ['NVDA', 'AVGO', 'MU', 'ASML', 'AMD', 'GOOGL', 'AMZN']);
+let watchlist = store.get('asrt_watch', ['NVDA', 'AVGO', 'MU', 'SKHY', 'ASML', 'AMD', 'GOOGL', 'AMZN']);
 let journal = store.get('asrt_journal', []);
 const getNotes = (t) => store.get('asrt_notes_' + t, { thesis: '', bull: '', bear: '', entry: '', risk: '', notes: '' });
 
@@ -874,7 +889,7 @@ async function fillFilings(t) {
     const R = s.filings && s.filings.recent;
     if (!R || !R.form) throw new Error('ไม่มีข้อมูลเอกสาร');
     const items = R.form.map((fm, i) => ({ fm, fd: R.filingDate[i], rd: R.reportDate && R.reportDate[i], acc: R.accessionNumber[i], doc: R.primaryDocument[i] }));
-    const keys = items.filter((x) => x.fm === '10-K' || x.fm === '10-Q').slice(0, 4);
+    const keys = items.filter((x) => x.fm === '10-K' || x.fm === '10-Q' || x.fm === '20-F').slice(0, 4);
     const eights = items.filter((x) => x.fm === '8-K').slice(0, 5);
     const insider = items.filter((x) => x.fm === '4' || x.fm === '4/A');
     const recent4 = insider.filter((x) => new Date(x.fd) >= Date.now() - 90 * 864e5);
@@ -1160,7 +1175,7 @@ function renderStock(t) {
 /* ---------------- MY PORTFOLIO (พอร์ตจริงของฉัน, บาท) ---------------- */
 const PF_LOGO_BG = { AVGO: '#e11d48', MU: '#1d4ed8', ASML: '#1e40af', NVDA: '#16a34a', AMD: '#52525b', COST: '#b91c1c', AMZN: '#f97316' };
 const TV_LOGO = { NVDA: 'nvidia', AVGO: 'broadcom', MU: 'micron-technology', ASML: 'asml', AMD: 'advanced-micro-devices', GOOGL: 'alphabet', AMZN: 'amazon', COST: 'costco-wholesale' };
-const PF_TICKS = ['AVGO', 'MU', 'ASML', 'NVDA', 'AMD', 'COST', 'AMZN', 'GOOGL', 'META', 'AAPL', 'MSFT', 'TSM', 'อื่นๆ'];
+const PF_TICKS = ['AVGO', 'MU', 'SKHY', 'ASML', 'NVDA', 'AMD', 'COST', 'AMZN', 'GOOGL', 'META', 'AAPL', 'MSFT', 'TSM', 'อื่นๆ'];
 let pfOpen = -1;
 function pfDefault() {
   return {
@@ -1389,7 +1404,7 @@ function rkLogo(r) {
   if (!id) return fb.replace('display:none', 'display:grid');
   return '<img class="pf-logo-img" style="width:36px;height:36px" src="https://s3-symbol-logo.tradingview.com/' + id + '--big.svg" alt="โลโก้ ' + esc(r.t) + '" loading="lazy" onerror="pfLogoFail(this)">' + fb;
 }
-const WIKI_TITLES = { NVDA: 'Nvidia', AVGO: 'Broadcom', MU: 'Micron_Technology', ASML: 'ASML', AMD: 'AMD', GOOGL: 'Google', AMZN: 'Amazon_(company)', COST: 'Costco', AAPL: 'Apple_Inc.', MSFT: 'Microsoft', META: 'Meta_Platforms', TSLA: 'Tesla,_Inc.', NFLX: 'Netflix', JPM: 'JPMorgan_Chase', V: 'Visa_Inc.', MA: 'Mastercard', WMT: 'Walmart', HD: 'Home_Depot', PG: 'Procter_&_Gamble', JNJ: 'Johnson_&_Johnson', XOM: 'ExxonMobil', CVX: 'Chevron_Corporation', UNH: 'UnitedHealth_Group', LLY: 'Eli_Lilly_and_Company', DIS: 'The_Walt_Disney_Company', NKE: 'Nike,_Inc.', ORCL: 'Oracle_Corporation', CRM: 'Salesforce', ADBE: 'Adobe_Inc.', INTC: 'Intel', QCOM: 'Qualcomm', AMAT: 'Applied_Materials', TXN: 'Texas_Instruments', CSCO: 'Cisco', ABBV: 'AbbVie', MRK: 'Merck_&_Co.', KO: 'Coca-Cola_Company', PEP: 'PepsiCo', MCD: "McDonald's", CAT: 'Caterpillar_Inc.', GE: 'GE_Aerospace', TMO: 'Thermo_Fisher_Scientific' };
+const WIKI_TITLES = { NVDA: 'Nvidia', AVGO: 'Broadcom', MU: 'Micron_Technology', SKHY: 'SK_Hynix', ASML: 'ASML', AMD: 'AMD', GOOGL: 'Google', AMZN: 'Amazon_(company)', COST: 'Costco', AAPL: 'Apple_Inc.', MSFT: 'Microsoft', META: 'Meta_Platforms', TSLA: 'Tesla,_Inc.', NFLX: 'Netflix', JPM: 'JPMorgan_Chase', V: 'Visa_Inc.', MA: 'Mastercard', WMT: 'Walmart', HD: 'Home_Depot', PG: 'Procter_&_Gamble', JNJ: 'Johnson_&_Johnson', XOM: 'ExxonMobil', CVX: 'Chevron_Corporation', UNH: 'UnitedHealth_Group', LLY: 'Eli_Lilly_and_Company', DIS: 'The_Walt_Disney_Company', NKE: 'Nike,_Inc.', ORCL: 'Oracle_Corporation', CRM: 'Salesforce', ADBE: 'Adobe_Inc.', INTC: 'Intel', QCOM: 'Qualcomm', AMAT: 'Applied_Materials', TXN: 'Texas_Instruments', CSCO: 'Cisco', ABBV: 'AbbVie', MRK: 'Merck_&_Co.', KO: 'Coca-Cola_Company', PEP: 'PepsiCo', MCD: "McDonald's", CAT: 'Caterpillar_Inc.', GE: 'GE_Aerospace', TMO: 'Thermo_Fisher_Scientific' };
 async function wikiSummary(t) {
   if (!WIKI_TITLES[t]) return null;
   const cached = LiveCache.get('wiki_' + t, 7 * 864e5);
@@ -1523,7 +1538,7 @@ async function rkFuture(t) {
     if (subs && subs.filings && subs.filings.recent) {
       const R = subs.filings.recent;
       const items = R.form.map((fm, i) => ({ fm, fd: R.filingDate[i] }));
-      const lastE = items.find((x) => x.fm === '10-K' || x.fm === '10-Q');
+      const lastE = items.find((x) => x.fm === '10-K' || x.fm === '10-Q' || x.fm === '20-F');
       if (lastE) ev.push('📁 งบล่าสุด ' + lastE.fm + ' ยื่น <b>' + esc(lastE.fd) + '</b> (ข้อมูลสด ยืนยันตัวเลขได้)');
       const k8 = items.filter((x) => x.fm === '8-K' && new Date(x.fd) >= Date.now() - 90 * 864e5).length;
       if (k8) ev.push('⚡ มี 8-K <b>' + k8 + ' ฉบับใน 90 วัน</b> — บริษัทมีอีเวนต์ (ตัวเร่ง)');
@@ -1698,6 +1713,7 @@ const SC_MAP = [
   { layer: 'ASIC', co: 'Broadcom', t: 'AVGO', note: 'Custom XPU + networking' },
   { layer: 'CPU / Accelerator', co: 'AMD', t: 'AMD', note: 'EPYC + Instinct' },
   { layer: 'Memory', co: 'Micron', t: 'MU', note: 'DRAM + HBM' },
+  { layer: 'Memory (HBM ผู้นำ)', co: 'SK hynix', t: 'SKHY', note: 'HBM3E/HBM4 ส่ง NVIDIA' },
   { layer: 'Foundry', co: 'TSMC', t: null, url: 'https://th.tradingview.com/symbols/NYSE-TSM/', note: 'ผลิตชิป (เปิดบน TradingView)' },
   { layer: 'Lithography', co: 'ASML', t: 'ASML', note: 'EUV เจ้าเดียวในโลก' },
   { layer: 'Equipment', co: 'Applied Materials', t: null, url: 'https://th.tradingview.com/symbols/NASDAQ-AMAT/', note: 'อุปกรณ์ผลิตชิป (เปิดบน TradingView)' },
@@ -1715,7 +1731,7 @@ function scMapHTML() {
 function renderIndustry() {
   const groups = [
     ['เซมิคอนดักเตอร์ — AI Compute', 'TAM ~$300B ปี 2030 (demo) · โต ~15%/ปี', ['NVDA', 'AMD', 'AVGO']],
-    ['เมมโมรี — DRAM/NAND + HBM', 'TAM ~$200B · วัฏจักร + แรงหนุน AI', ['MU']],
+    ['เมมโมรี — DRAM/NAND + HBM', 'TAM ~$200B · วัฏจักร + แรงหนุน AI', ['MU', 'SKHY']],
     ['ลิโทกราฟี — ผูกขาด EUV', 'TAM ~$40B เครื่องจักร · วัฏจักร High-NA', ['ASML']],
     ['คลาวด์ — AWS / Azure / GCP', 'TAM ~$1T+ · โต ~17%/ปี', ['GOOGL', 'AMZN']],
   ];
@@ -1724,7 +1740,7 @@ function renderIndustry() {
     + groups.map((g) => '<div class="card sec"><div class="sec-head"><h3>' + esc(g[0]) + '</h3><span class="badge b-blue">' + esc(g[1]) + '</span></div><div class="stock-grid">'
       + g[2].map(cardHTML).join('') + '</div></div>').join('')
     + '<div class="card sec"><h3>แผนที่คู่แข่ง</h3><div class="table-wrap"><table><thead><tr><th>สนาม</th><th>ผู้เล่น</th></tr></thead><tbody>'
-    + [['AI GPU', 'NVIDIA · AMD · Broadcom (XPU) · Intel'], ['เมมโมรี', 'Micron · SK Hynix · Samsung'], ['ลิโทกราฟี', 'ASML (EUV เจ้าเดียว)'], ['คลาวด์', 'AWS · Azure · Google Cloud']].map((r) => '<tr><td>' + r[0] + '</td><td style="text-align:left">' + r[1] + '</td></tr>').join('')
+    + [['AI GPU', 'NVIDIA · AMD · Broadcom (XPU) · Intel'], ['เมมโมรี', 'Micron · SK hynix · Samsung'], ['ลิโทกราฟี', 'ASML (EUV เจ้าเดียว)'], ['คลาวด์', 'AWS · Azure · Google Cloud']].map((r) => '<tr><td>' + r[0] + '</td><td style="text-align:left">' + r[1] + '</td></tr>').join('')
     + '</tbody></table></div></div>';
   paintSparks();
   fillLivePrices(); $$('[data-watch]').forEach((b) => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleWatch(b.dataset.watch); });
@@ -1977,7 +1993,7 @@ function renderSettings() {
 /* ---------------- RESEARCH ASSISTANT CHAT (rule-based, data-grounded) --
    Answers are composed ONLY from SEED + live provider data (TradingView /
    SEC / Stooq). Unknown → "Data unavailable". Never predicts prices. ----- */
-const CHAT_ALIAS = { NVDA: ['nvda', 'nvidia'], AVGO: ['avgo', 'broadcom'], MU: ['mu', 'micron', 'ไมครอน'], ASML: ['asml'], AMD: ['amd'], GOOGL: ['googl', 'google', 'alphabet'], AMZN: ['amzn', 'amazon'] };
+const CHAT_ALIAS = { NVDA: ['nvda', 'nvidia'], AVGO: ['avgo', 'broadcom'], MU: ['mu', 'micron', 'ไมครอน'], SKHY: ['skhy', 'sk hynix', 'hynix', 'ไฮนิกซ์'], ASML: ['asml'], AMD: ['amd'], GOOGL: ['googl', 'google', 'alphabet'], AMZN: ['amzn', 'amazon'] };
 function chatTickers(q) {
   const s = ' ' + String(q || '').toLowerCase() + ' ';
   const found = [];
@@ -2116,7 +2132,7 @@ async function chatFilings(t) {
     const s = await getSubmissions(t);
     const R = s.filings && s.filings.recent;
     const items = R.form.map((fm, i) => ({ fm, fd: R.filingDate[i] }));
-    const earn = items.filter((x) => x.fm === '10-K' || x.fm === '10-Q').slice(0, 3);
+    const earn = items.filter((x) => x.fm === '10-K' || x.fm === '10-Q' || x.fm === '20-F').slice(0, 3);
     const k8 = items.filter((x) => x.fm === '8-K').length;
     const f4 = items.filter((x) => x.fm === '4' || x.fm === '4/A').filter((x) => new Date(x.fd) >= Date.now() - 90 * 864e5).length;
     return '<b>' + t + ' เอกสารยื่น (SEC)</b><br>งบล่าสุด: ' + earn.map((x) => x.fm + ' ' + esc(x.fd)).join(' · ')
