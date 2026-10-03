@@ -16,8 +16,8 @@ python -m http.server 8000 --directory C:\Website\stocksme
 
 Open `http://localhost:8000` → hash router:
 
-- `#/` dashboard · `#/stock/NVDA` detail · `#/compare` · `#/valuation/NVDA`
-- `#/industry` · `#/tools` (DCA + portfolio) · `#/journal` · `#/news` · `#/settings`
+- `#/` dashboard (market overview S&P/NASDAQ/Dow/VIX/BTC/USD-THB + watchlist) · `#/stock/NVDA` detail · `#/compare` · `#/valuation/NVDA`
+- `#/industry` (Semiconductor AI supply-chain map) · `#/tools` (DCA + compound + portfolio) · `#/backtest` (monthly-DCA lab on real Stooq history) · `#/journal` · `#/news` · `#/settings`
 
 ## Live data (no API key)
 
@@ -35,6 +35,19 @@ price/TTM-P/E row; DCF prefills base revenue + shares from SEC.
 
 If a feed fails, the UI keeps the demo figure and says the feed is
 unavailable — stale data is never presented as fresh.
+
+## V2 additions
+
+- **Market overview** (Stooq: S&P 500, NASDAQ 100, Dow, VIX, BTC, USD/THB + Updated timestamp).
+- **Fundamental Score**: 6 explainable pillars (Growth/Profitability/Cash Flow/Balance/Efficiency/Valuation), every pillar shows formula + underlying values.
+- **Scenario targets**: Bull/Base/Bear target = Rev3Y × NetM proxy × P/E ÷ Shares, assumptions stated, labeled SCENARIO.
+- **Investment Thesis**: 5-question structure (what it does / growth drivers / earning power / cheap-vs-what / what breaks the thesis).
+- **Price chart**: 1M–MAX ranges + MA 50/200 + volume toggles on real Stooq daily closes.
+- **Compound calculator**: 1/5/10/20/30Y principal vs growth table + chart.
+- **Backtest Lab**: monthly DCA on real monthly history (NVDA/AVGO/MU/ASML/AMD + VOO + BTC) with Total Return, CAGR, Max Drawdown, ann. Vol, best/worst year.
+- **Semiconductor AI map**: clickable supply-chain nodes (SEED → detail, TSM/AMAT → TradingView).
+- **Data confidence**: High/Medium/Low from source quality + freshness on every stock page.
+- **News**: FACT vs AI-interpretation split per story.
 
 ## Research Assistant chat (💬 button, bottom-right)
 

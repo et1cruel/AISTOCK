@@ -137,7 +137,7 @@ async function fetchText(url, ms) {
   try { const r = await fetch(url, { signal: c.signal }); if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url); return await r.text(); }
   finally { clearTimeout(t); }
 }
-const STOOQ_SYM = { NVDA: 'nvda.us', AVGO: 'avgo.us', MU: 'mu.us', ASML: 'asml.us', AMD: 'amd.us', GOOGL: 'googl.us', AMZN: 'amzn.us', COST: 'cost.us' };
+const STOOQ_SYM = { NVDA: 'nvda.us', AVGO: 'avgo.us', MU: 'mu.us', ASML: 'asml.us', AMD: 'amd.us', GOOGL: 'googl.us', AMZN: 'amzn.us', COST: 'cost.us', VOO: 'voo.us', BTC: 'btcusd' };
 const CIK_FALLBACK = { NVDA: 1045810, AVGO: 1730168, MU: 723125, ASML: 937966, AMD: 2488, GOOGL: 1652044, AMZN: 1018724 };
 async function getCIK(t) {
   let map = LiveCache.get('cikmap', 30 * 864e5);
@@ -317,9 +317,62 @@ async function getHistoryLive(t, interval) {
   return rows;
 }
 
-/* ---------------- TRADINGVIEW snapshot (public scanner API, real data:
-   price, TTM fundamentals, margins, RSI/SMA/MACD, analyst consensus).
-   Field reference = the same columns shown on tradingview.com/symbols. -- */
+/* ---------------- MARKET OVERVIEW (indices / VIX / BTC / USDTHB) --------
+   Stooq symbols are public + delayed. On failure: UI shows
+   "Unable to retrieve current market data." — never fake numbers. ------- */
+const MARKET_SYMS = [
+  { id: 'SPX', label: 'S&P 500', sym: '^spx' },
+  { id: 'NDQ', label: 'NASDAQ 100', sym: '^ndq' },
+  { id: 'DJI', label: 'Dow Jones', sym: '^dji' },
+  { id: 'VIX', label: 'VIX', sym: '^vix' },
+  { id: 'BTC', label: 'Bitcoin', sym: 'btcusd' },
+  { id: 'FX', label: 'USD/THB', sym: 'usdthb' },
+];
+async function getMarketOverview() {
+  const cached = LiveCache.get('market_overview', 15 * 60e3);
+  if (cached) return cached;
+  const syms = MARKET_SYMS.map((m) => m.sym).join(',');
+  const txt = await fetchText('https://stooq.com/q/l/?s=' + encodeURIComponent(syms) + '&f=sd2t2ohlcv&h&e=csv', 12000);
+  const out = {};
+  txt.trim().split('\n').slice(1).forEach((ln) => {
+    const p = ln.split(',');
+    const sym = (p[0] || '').toLowerCase();
+    if (p.length >= 8 && p[6] !== 'N/D' && !isNaN(+p[6])) {
+      out[sym] = { date: p[1], time: p[2], open: +p[3], close: +p[6] };
+    }
+  });
+  if (!Object.keys(out).length) throw new Error('Empty market response');
+  LiveCache.set('market_overview', out);
+  return out;
+}
+function marketOverviewHTML() {
+  return '<div class="card sec" id="mktCard"><div class="sec-head"><h3>ภาพรวมตลาด</h3><span class="muted small" id="mktTs">กำลังโหลด…</span></div>'
+    + '<div class="kv" id="mktBody"><div class="muted">กำลังดึง S&P 500 · NASDAQ · Dow · VIX · BTC · USD/THB…</div></div></div>';
+}
+async function fillMarketOverview() {
+  const body = $('#mktBody'), ts = $('#mktTs');
+  if (!body) return;
+  if (!DataService.liveOn()) { body.innerHTML = '<div class="muted small">ปิดโหมด live อยู่ (ตั้งค่า → Live เพื่อดูภาพรวมตลาด)</div>'; if (ts) ts.textContent = ''; return; }
+  try {
+    const q = await getMarketOverview();
+    if (!$('#mktBody')) return;
+    let stamp = '';
+    body.innerHTML = MARKET_SYMS.map((m) => {
+      const r = q[m.sym];
+      if (!r) return '<div class="cell"><div class="k">' + esc(m.label) + '</div><div class="v">N/A</div></div>';
+      const chg = r.open ? (((r.close - r.open) / r.open) * 100) : null;
+      stamp = r.date + ' ' + r.time;
+      const dec = m.id === 'FX' ? 2 : (m.id === 'VIX' ? 2 : (r.close > 10000 ? 0 : 2));
+      return '<div class="cell"><div class="k">' + esc(m.label) + '</div><div class="v" style="font-size:16px">' + Number(r.close).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '</div>'
+        + '<div class="small" style="color:' + (chg >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (chg != null ? (chg >= 0 ? '▲ +' : '▼ ') + chg.toFixed(2) + '% วันนี้' : '') + '</div></div>';
+    }).join('');
+    if (ts) ts.innerHTML = '<span class="badge b-green fresh">● สด (ดีเลย์)</span> <span class="muted small">Stooq · Updated: ' + esc(stamp) + '</span>';
+  } catch (e) {
+    if ($('#mktBody')) body.innerHTML = '<div style="color:var(--red);font-weight:700">Unable to retrieve current market data. (' + esc(e.message) + ')</div>';
+    if (ts && $('#mktTs')) ts.innerHTML = '<span class="muted small">Data may be stale.</span>';
+  }
+}
+/* ---------------- TRADINGVIEW snapshot (public scanner API, real data) -- */
 const TV_COLS = ['close', 'change', 'open', 'high', 'low', 'volume', 'market_cap_basic', 'price_earnings_ttm', 'earnings_per_share_diluted_ttm', 'total_revenue_ttm', 'net_income_ttm', 'gross_margin_ttm', 'operating_margin_ttm', 'net_margin_ttm', 'dividends_yield_current', 'price_52_week_high', 'price_52_week_low', 'RSI', 'SMA20', 'SMA50', 'SMA200', 'MACD.macd', 'MACD.signal', 'Recommend.All', 'number_of_employees', 'description', 'logoid'];
 const TV_EX = { NVDA: 'NASDAQ', AVGO: 'NASDAQ', MU: 'NASDAQ', ASML: 'NASDAQ', AMD: 'NASDAQ', GOOGL: 'NASDAQ', AMZN: 'NASDAQ', COST: 'NASDAQ' };
 async function getTVSnapshot(t, force) {
@@ -570,6 +623,7 @@ function route() {
   if (parts[0] === 'valuation') return renderValuation(parts[1]);
   if (parts[0] === 'industry') return renderIndustry();
   if (parts[0] === 'tools') return renderTools();
+  if (parts[0] === 'backtest') return renderBacktest();
   if (parts[0] === 'journal') return renderJournal();
   if (parts[0] === 'news') return renderNews();
   if (parts[0] === 'settings') return renderSettings();
@@ -601,7 +655,8 @@ function renderDashboard() {
     '<div class="hero"><div><h1>AI Stock Research Terminal</h1><p>แดชบอร์ดผู้บริหารสำหรับนักลงทุนระยะยาว เปิดดูไม่กี่วินาทีก็รู้ว่า: ตัวไหนโต ตัวไหนผลิตเงินสด จ่ายแพงแค่ไหน อะไรจะทำให้สมมติฐานพัง ' + DEMO + ' — ราคาตลาดต้องต่อผู้ให้บริการข้อมูลสด</p></div>'
     + '<div class="toolbar"><label class="fl">เรียงหุ้นติดตาม<select id="sortSel" class="inline" aria-label="เรียงหุ้นติดตาม"><option value="ticker">ชื่อย่อ</option><option value="growth">การเติบโต</option><option value="valuation">มูลค่า (Fwd P/E)</option><option value="mcap">มูลค่าตลาด</option></select></label>'
     + '<button class="btn ghost sm" id="addBtn">+ เพิ่ม</button></div></div>'
-    + '<div class="grid g4" style="margin-bottom:14px">'
+    + marketOverviewHTML()
+    + '<div class="grid g4" style="margin-bottom:14px;margin-top:14px">'
     + '<div class="card"><h3>หุ้นติดตาม</h3><div class="num" style="font-size:30px;font-weight:900">' + rows.length + ' <span class="muted small">ตัว</span></div><div class="muted small">รายได้โตเฉลี่ย ' + fmtPct(avgRev) + ' → มินิชาร์ต → กดดูรายละเอียด</div></div>'
     + '<div class="card"><h3>สัญญาณเติบโต</h3><div class="num" style="font-size:30px;font-weight:900">' + fmtPct(avgRev) + '</div><div class="muted small">ค่าเฉลี่ย YoY ทั้ง watchlist · <a href="#/compare">ดูรายได้</a></div></div>'
     + '<div class="card"><h3>เช็กเงินสดจริง</h3><div class="num" style="font-size:30px;font-weight:900">' + fmtB(rows.reduce((a, t) => a + SEED[t].fcf, 0)) + '</div><div class="muted small">FCF รวม (จำลอง) — ธุรกิจผลิตเงินสดจริงไหม?</div></div>'
@@ -615,6 +670,7 @@ function renderDashboard() {
     + '<div class="card sec"><h3>คำถามช่วยตัดสินใจ</h3><ul class="q-list"><li>อะไรต้องเป็นจริง บริษัทถึงจะเติบโตต่อ?</li><li>อะไรจะพิสูจน์ว่าสมมติฐานเราผิด?</li><li>ตลาดคาดหวังอะไรไว้ในราคานี้แล้ว?</li><li>ราคาปัจจุบันสะท้อนการเติบโตไปมากแค่ไหน?</li><li>บริษัทสร้างเงินสดได้จริงหรือไม่ — ดู มาร์จิ้น FCF และแนวโน้ม</li></ul></div>';
   paintSparks();
   fillLivePrices();
+  fillMarketOverview();
   $('#sortSel').onchange = (e) => {
     const k = e.target.value;
     const sorted = [...watchlist].sort((a, b) => k === 'growth' ? SEED[b].revGrowth - SEED[a].revGrowth : k === 'valuation' ? SEED[a].fwdPE - SEED[b].fwdPE : k === 'mcap' ? SEED[b].mcap - SEED[a].mcap : a.localeCompare(b));
@@ -868,8 +924,11 @@ async function fillStockLive(t, drawTech) {
     if (body) body.innerHTML = '<p class="muted">ปิดโหมด live อยู่ (ตั้งค่า → ผู้ให้บริการ → Live) ตัวเลขด้านบนเป็น demo</p>';
     return;
   }
+  let secOK = false, quoteOK = false;
   try {
     const [f, qq] = await Promise.all([getFundamentals(t), getQuotesLive([t]).catch(() => ({}))]);
+    secOK = !!(f && f.revA && f.revA.length);
+    quoteOK = !!(qq && qq[t]);
     if (body) body.innerHTML = secPanelHTML(t, f, qq[t] || null);
     try {
       const dd = secDerived(f);
@@ -884,12 +943,91 @@ async function fillStockLive(t, drawTech) {
   try {
     const rows = await getHistoryLive(t, 'd');
     const closes = rows.map((r) => r.c);
-    if (closes.length > 60 && drawTech) drawTech(closes, true);
+    if (closes.length > 60 && typeof redrawPchart === 'function' && pchartT === t) {
+      setPchart(rows.map((r) => ({ c: r.c, v: r.v || 0 })), true);
+    } else if (closes.length > 60 && drawTech) drawTech(closes, true);
   } catch (_) {}
+  const cb = $('#confBadge');
+  if (cb) {
+    cb.innerHTML = secOK && quoteOK
+      ? confidenceHTML('High', 'ราคาสด + งบ SEC จริง + TradingView')
+      : (secOK || quoteOK)
+        ? confidenceHTML('Medium', secOK ? 'งบ SEC จริง แต่ราคาสดใช้ไม่ได้' : 'ราคาสด แต่ดึงงบ SEC ไม่ได้')
+        : confidenceHTML('Low', 'ดึงข้อมูลสดไม่ได้ — แสดง demo');
+  }
   fillFilings(t);
   fillPerf(t);
   fillTV(t);
   fillWiki(t);
+}
+
+/* ---------------- FUNDAMENTAL SCORE (explainable, no AI guessing) -------
+   Each pillar 0–100 from stated formulas over SEED demo figures.
+   Displayed with formula + underlying values, always DEMO-labeled. ------ */
+const clamp100 = (v) => Math.max(0, Math.min(100, v == null || isNaN(v) ? 0 : v));
+function fundScore(t) {
+  const s = SEED[t];
+  const c = (v, cap) => clamp100((Math.max(v, 0) / cap) * 100);
+  const pillars = [
+    { k: 'Growth', v: Math.round(c(s.revGrowth, 60) * 0.4 + c(s.epsGrowth, 80) * 0.3 + c(s.cagr5, 60) * 0.3), f: 'RevYoY÷60×40 + EPSYoY÷80×30 + CAGR5Y÷60×30', d: 'Rev ' + fmtPct(s.revGrowth) + ' · EPS ' + fmtPct(s.epsGrowth) + ' · CAGR5Y ' + fmtPct(s.cagr5) },
+    { k: 'Profitability', v: Math.round(c(s.grossM, 75) * 0.4 + c(s.opM, 55) * 0.3 + c(s.netM, 50) * 0.3), f: 'GrossM÷75×40 + OpM÷55×30 + NetM÷50×30', d: 'Gross ' + fmtN(s.grossM) + '% · Op ' + fmtN(s.opM) + '% · Net ' + fmtN(s.netM) + '%' },
+    { k: 'Cash Flow', v: Math.round(c(s.fcfM, 45) * 0.5 + c(s.fcfYield, 4) * 0.25 + (s.fcf > 0 && s.debt <= s.fcf * 3 ? 25 : clamp100((s.fcf * 3 / Math.max(s.debt, 0.1)) * 25))), f: 'FCFm÷45×50 + FCFYield÷4×25 + Debt≤3×FCF→25', d: 'FCF ' + fmtB(s.fcf) + ' (' + fmtN(s.fcfM) + '%) · Yield ' + fmtN(s.fcfYield) + '% · Debt ' + fmtB(s.debt) },
+    { k: 'Balance Sheet', v: Math.round(clamp100((s.cash / Math.max(s.debt, 0.1)) * 50) * 0.5 + (s.debt > 0 ? clamp100((s.fcf / s.debt) * 50) : 50) * 0.5), f: 'Cash÷Debt×50 (ครึ่ง) + FCF÷Debt×50 (ครึ่ง)', d: 'Cash ' + fmtB(s.cash) + ' · Debt ' + fmtB(s.debt) },
+    { k: 'Efficiency', v: Math.round(c(s.roe, 60) * 0.5 + c(s.roic, 45) * 0.5), f: 'ROE÷60×50 + ROIC÷45×50', d: 'ROE ' + fmtN(s.roe) + '% · ROIC ' + fmtN(s.roic) + '%' },
+    { k: 'Valuation', v: Math.round(clamp100(((40 - s.fwdPE) / 25) * 100) * 0.6 + clamp100(((2.5 - s.peg) / 2) * 100) * 0.4), f: '(40−FwdPE)÷25×60 + (2.5−PEG)÷2×40 — ยิ่งถูกยิ่งคะแนนสูง', d: 'Fwd P/E ' + fmtN(s.fwdPE) + ' · PEG ' + fmtN(s.peg) },
+  ];
+  const total = Math.round(pillars.reduce((a, p) => a + p.v, 0) / pillars.length);
+  return { pillars, total };
+}
+function fundScoreHTML(t) {
+  const { pillars, total } = fundScore(t);
+  const bar = (v) => '<div style="background:var(--line);border-radius:6px;height:8px;margin-top:6px"><div style="width:' + v + '%;height:100%;border-radius:6px;background:' + (v >= 70 ? 'var(--green)' : v >= 45 ? 'var(--yellow)' : 'var(--red)') + '"></div></div>';
+  return '<div class="kv"><div class="cell"><div class="k">คะแนนรวม (ค่าเฉลี่ย 6 หมวด)</div><div class="v" style="font-size:30px">' + total + '<span class="muted small">/100</span></div><div class="muted small">สูตร + ข้อมูลกำกับทุกหมวด · ไม่ใช่คำแนะนำซื้อขาย</div></div>'
+    + pillars.map((p) => '<div class="cell"><div class="k">' + p.k + '</div><div class="v">' + p.v + '<span class="muted small">/100</span></div>' + bar(p.v) + '<div class="muted small" style="margin-top:6px"><span class="tag-calc">สูตร</span>' + esc(p.f) + '<br><span class="tag-fact">ข้อมูล</span>' + esc(p.d) + '</div></div>').join('') + '</div>';
+}
+/* Scenario targets: Target = Rev3Y × NetM(proxy) × P/E ÷ Shares.
+   NetM proxy = OPM(scenario) × (1−15% tax). P/E multiples are stated
+   assumptions (bull 1.2× / base 1.0× / bear 0.7× Fwd P/E). SCENARIO only. */
+function parsePct(str) {
+  const m = String(str || '').match(/([+-]?\d+(\.\d+)?)\s*%/);
+  return m ? +m[1] : null;
+}
+function scenarioHTML(t) {
+  const s = SEED[t];
+  const rev0 = s.rev5y[4], shares = s.mcap / s.price;
+  const rows = ['bull', 'base', 'bear'].map((k) => {
+    const g = (parsePct(s.scen[k].rev) || 0) / 100;
+    const opm = (parsePct(s.scen[k].margin) || s.opM) / 100;
+    const netM = opm * 0.85;
+    const mult = k === 'bull' ? s.fwdPE * 1.2 : k === 'base' ? s.fwdPE : s.fwdPE * 0.7;
+    const rev3 = rev0 * Math.pow(1 + g, 3);
+    const tgt = shares > 0 ? (rev3 * netM * mult) / shares : null;
+    const vs = tgt != null ? (((tgt - s.price) / s.price) * 100) : null;
+    return '<div class="cell"><div class="k">' + k.toUpperCase() + ' — เป้าหมาย (SCENARIO)</div>'
+      + '<div class="v">' + (tgt != null ? fmt$(tgt, 0) : 'N/A') + ' <span class="small" style="color:' + (vs >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (vs != null ? fmtPct(vs, 0) + ' vs ปัจจุบัน' : '') + '</span></div>'
+      + '<div class="muted small"><span class="tag-assump">ข้อสมมติ</span>' + esc(s.scen[k].rev) + ' · ' + esc(s.scen[k].margin) + ' · P/E ' + fmtN(mult, 1) + ' (' + (k === 'bull' ? '1.2×' : k === 'base' ? '1.0×' : '0.7×') + ' Fwd P/E)</div>'
+      + '<div class="muted small">' + esc(s.scen[k].note) + '</div></div>';
+  }).join('');
+  return '<div class="kv">' + rows + '</div>'
+    + '<p class="muted small"><span class="tag-calc">สูตร</span>เป้าหมาย = รายได้ปีที่ 3 × NetM โดยประมาณ (OPM×0.85) × P/E สมมติ ÷ จำนวนหุ้น (' + fmtN(shares, 2) + 'B) · รายได้ตั้งต้น ' + fmtB(rev0) + ' · ราคาปัจจุบัน ' + fmt$(s.price) + ' (demo) · <b>SCENARIO ไม่ใช่ PREDICTION</b></p>';
+}
+function thesisHTML(t) {
+  const s = SEED[t];
+  return '<div class="grid g2">'
+    + '<div><h4>1 · บริษัทนี้ทำอะไร?</h4><p class="small">' + esc(s.desc) + '</p><p class="muted small"><span class="tag-interp">ตีความ</span>' + esc(s.bizModel) + '</p></div>'
+    + '<div><h4>2 · โตจากอะไร? (Growth Drivers)</h4><ul class="small">' + s.catalysts.map((c) => '<li>' + esc(c) + '</li>').join('') + '</ul></div>'
+    + '<div><h4>3 · ทำเงินดีแค่ไหน?</h4><p class="small">OpM ' + fmtN(s.opM) + '% · NetM ' + fmtN(s.netM) + '% · FCF ' + fmtB(s.fcf) + ' (' + fmtN(s.fcfM) + '%) · ROIC ' + fmtN(s.roic) + '%</p><p class="muted small">คูเมืองหลัก: ' + esc(s.moat[0][0]) + ' (' + esc(s.moat[0][1]) + ')</p></div>'
+    + '<div><h4>4 · แพงหรือถูกเมื่อเทียบกับอะไร?</h4><p class="small">Fwd P/E ' + fmtN(s.fwdPE) + ' · PEG ' + fmtN(s.peg) + ' · P/S ' + fmtN(s.ps) + ' · EV/EBITDA ' + fmtN(s.evEbitda) + '</p><p class="muted small">เทียบค่าเฉลี่ย 5Y/10Y + sector: ข้อมูลยังไม่พอ (ต้องต่อ provider เสริม)</p></div>'
+    + '<div><h4>5 · ความเสี่ยงที่ทำให้ thesis ผิดคืออะไร?</h4><ul class="small">' + s.risks.slice(0, 3).map((r) => '<li><b>' + esc(r[0]) + '</b> — โอกาส ' + esc(r[1]) + ' · ผลกระทบ ' + esc(r[2]) + '</li>').join('') + '</ul></div>'
+    + '<div><h4>ตัวแปรสำคัญที่ต้องตาม (Key Variables)</h4><p class="small">รายได้โต · OPM · FCF margin · จำนวนหุ้น (buyback/dilution) · งบ 10-K/10-Q งวดถัดไป · เหตุการณ์ 8-K</p><p class="muted small"><span class="tag-assump">ล้มล้าง thesis</span>' + esc(s.scen.bear.note) + '</p></div>'
+    + '</div><div class="src-line"><span class="tag-interp">AI-assisted</span>สรุปจากข้อมูลในระบบเท่านั้น (งบ demo + moat/risks/catalysts ที่ระบุ) · ไม่สร้างข่าวหรือ fact ใหม่ ' + DEMO + '</div>';
+}
+/* Data confidence: High = TV+SEC live · Medium = อย่างใดอย่างหนึ่ง ·
+   Low = demo อย่างเดียว. Computed when live fills finish. */
+function confidenceHTML(level, reason) {
+  const map = { High: ['b-green', '● High'], Medium: ['b-yellow', '● Medium'], Low: ['b-red', '● Low'] };
+  const m = map[level] || map.Low;
+  return '<span class="badge ' + m[0] + '" title="ความเชื่อมั่นข้อมูล: ' + esc(reason) + '">' + m[1] + '</span> <span class="muted small">' + esc(reason) + '</span>';
 }
 
 /* ---------------- STOCK DETAIL -------------------------------------- */
@@ -905,7 +1043,7 @@ function renderStock(t) {
   view().innerHTML =
     '<div class="row"><a class="btn ghost sm" href="#/">← แดชบอร์ด</a><a class="btn ghost sm" href="#/compare">เปรียบเทียบ</a><a class="btn ghost sm" href="#/valuation/' + t + '">เปิดใน DCF</a><span style="margin-left:auto"></span><button class="btn ghost sm" data-watch="' + t + '">' + (inWatch(t) ? '★ อยู่ในรายการ' : '☆ เพิ่มเข้ารายการ') + '</button></div>'
     + '<div class="card sec"><div class="sc-head"><div style="display:flex;gap:12px;align-items:center">' + pfLogo(t) + '<div><div class="ticker">' + t + ' · ' + esc(s.name) + '</div><div class="cname">' + esc(s.sector) + ' · ' + esc(s.industry) + ' · 52W ' + fmt$(s.lo52, 0) + '–' + fmt$(s.hi52, 0) + '</div></div></div>'
-    + '<div style="text-align:right"><div class="price num" data-lp="' + t + '">' + fmt$(s.price) + '</div><div class="muted small" data-lp-src="' + t + '">มูลค่าตลาด ' + fmtB(s.mcap) + ' ' + DEMO + '</div><div id="liveAsOf" style="margin-top:4px">' + freshness('ตลาด: กำลังโหลดข้อมูลสด… · งบ: กำลังโหลดจาก SEC EDGAR…') + '</div></div></div>'
+    + '<div style="text-align:right"><div class="price num" data-lp="' + t + '">' + fmt$(s.price) + '</div><div class="muted small" data-lp-src="' + t + '">มูลค่าตลาด ' + fmtB(s.mcap) + ' ' + DEMO + '</div><div id="liveAsOf" style="margin-top:4px">' + freshness('ตลาด: กำลังโหลดข้อมูลสด… · งบ: กำลังโหลดจาก SEC EDGAR…') + '</div><div id="confBadge" style="margin-top:4px">' + confidenceHTML('Low', 'demo อย่างเดียว — รอข้อมูลสด') + '</div></div></div>'
     + '<div class="kv" style="margin-top:12px">'
     + [['รายได้โต', fmtPct(s.revGrowth)], ['กำไร/หุ้นโต', fmtPct(s.epsGrowth)], ['มาร์จิ้นขั้นต้น', fmtN(s.grossM) + '%'], ['มาร์จิ้นดำเนินงาน', fmtN(s.opM) + '%'], ['กระแสเงินสดอิสระ', fmtB(s.fcf)], ['มาร์จิ้น FCF', fmtN(s.fcfM) + '%'], ['P/E · ล่วงหน้า', fmtN(s.pe) + ' · ' + fmtN(s.fwdPE)], ['PEG', fmtN(s.peg)], ['ปันผล', fmtN(s.divY) + '%']].map((k) => '<div class="cell"><div class="k">' + k[0] + '</div><div class="v">' + k[1] + '</div></div>').join('')
     + '</div>' + statusBadges(s) + srcLine(s) + '</div>'
@@ -931,6 +1069,8 @@ function renderStock(t) {
     + '<div class="kv">' + [['รายได้', fmtB(s.rev5y[4])], ['มาร์จิ้นขั้นต้น', fmtN(s.grossM) + '%'], ['มาร์จิ้นดำเนินงาน', fmtN(s.opM) + '%'], ['มาร์จิ้นสุทธิ', fmtN(s.netM) + '%'], ['ROE', fmtN(s.roe) + '%'], ['ROIC', fmtN(s.roic) + '%'], ['เงินสด', fmtB(s.cash)], ['หนี้', fmtB(s.debt)], ['หนี้สุทธิ', fmtB(s.debt - s.cash)], ['Debt/FCF', fmtN(s.debt / Math.max(s.fcf, 0.1), 1) + 'x'], ['FCF = OCF − CapEx', fmtB(s.fcf)], ['มาร์จิ้น FCF', fmtN(s.fcfM) + '%']].map((k) => '<div class="cell"><div class="k">' + k[0] + '</div><div class="v">' + k[1] + '</div></div>').join('') + '</div>'
     + '<canvas class="chart" id="fcfC" style="margin-top:12px"></canvas>' + srcLine(s) + '</div>'
 
+    + '<div class="card sec"><div class="sec-head"><h3>⭐ Fundamental Score — อธิบายได้ทุกคะแนน</h3>' + DEMO + '</div>' + fundScoreHTML(t) + srcLine(s) + '</div>'
+
     + '<div class="card sec"><div class="sec-head"><h3>6 · มูลค่า — อย่าดูแค่ P/E</h3>' + DEMO + '</div>'
     + '<div class="kv">' + [['P/E', fmtN(s.pe)], ['P/E ล่วงหน้า', fmtN(s.fwdPE)], ['PEG', fmtN(s.peg)], ['P/S', fmtN(s.ps)], ['EV/EBITDA', fmtN(s.evEbitda)], ['Price/FCF', fmtN(s.pFCF)], ['ยีลด์ FCF', fmtN(s.fcfYield) + '%']].map((k) => '<div class="cell"><div class="k">' + k[0] + '</div><div class="v">' + k[1] + '</div></div>').join('') + '</div>'
     + '<div class="gauge" role="img" aria-label="Valuation gauge">' + gLabels.map((g, i) => '<div class="' + (i === gaugePos ? 'on' : '') + '" style="' + (i === gaugePos ? 'background:' + ['#22c55e', '#3b82f6', '#eab308', '#ef4444'][i] : '') + '">' + g + '</div>').join('') + '</div>'
@@ -944,11 +1084,15 @@ function renderStock(t) {
     + s.risks.map((r) => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td style="text-align:left;white-space:normal">' + esc(r[3]) + '</td></tr>').join('')
     + '</tbody></table></div></div>'
 
-    + '<div class="card sec"><h3>10 · กรณี BULL / BASE / BEAR</h3><div class="grid g3">'
-    + ['bull', 'base', 'bear'].map((k) => '<div class="cell kv"><div class="cell"><div class="k">' + k.toUpperCase() + '</div><div class="v" style="font-size:14px">' + esc(s.scen[k].rev) + ' · ' + esc(s.scen[k].margin) + '</div><p class="muted small"><span class="tag-assump">ข้อสมมติ</span>' + esc(s.scen[k].note) + '</p></div></div>').join('')
-    + '</div><p class="muted small">ไม่มีกรณีไหนที่จะเกิดแน่นอน</p></div>'
+    + '<div class="card sec"><div class="sec-head"><h3>10 · กรณี BULL / BASE / BEAR — SCENARIO</h3>' + DEMO + '</div>' + scenarioHTML(t) + '</div>'
 
-    + '<div class="card sec"><div class="sec-head"><h3>แดชบอร์ดเทคนิค — แยกจากการวิเคราะห์พื้นฐาน</h3><span class="muted small">ราคา · SMA20/50/200 · RSI · MACD · 52W · แนวรับ/แนวต้าน</span></div><canvas class="chart" id="techC"></canvas><div class="kv" id="techKV" style="margin-top:10px"></div><p class="muted small">แนวรับ ≈ จุดต่ำสุดรอบล่าสุด · แนวต้าน ≈ จุดสูงสุดรอบล่าสุด (คำนวณ demo)</p></div>'
+    + '<div class="card sec"><div class="sec-head"><h3>📝 Investment Thesis — 5 คำถามต้องตอบได้</h3>' + DEMO + '</div>' + thesisHTML(t) + '</div>'
+
+    + '<div class="card sec"><div class="sec-head"><h3>แดชบอร์ดเทคนิค — แยกจากการวิเคราะห์พื้นฐาน</h3><span class="badge b-green" id="pxLiveBadge" style="display:none">REAL DATA</span></div>'
+    + '<div class="toolbar" id="pxBar" role="group" aria-label="ช่วงกราฟราคา">'
+    + ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'].map((r) => '<button class="chip-sel' + (r === '1Y' ? ' on' : '') + '" data-pxr="' + r + '">' + r + '</button>').join('')
+    + '<span style="margin-left:auto"></span><button class="chip-sel on" id="pxMA">MA 50/200</button><button class="chip-sel" id="pxVol">Volume</button></div>'
+    + '<canvas class="chart" id="techC" style="margin-top:10px"></canvas><canvas class="chart" id="pxV" style="display:none;height:70px"></canvas><div class="kv" id="techKV" style="margin-top:10px"></div><p class="muted small">กราฟสด = ราคาปิดรายวันจริง (Stooq) · แนวรับ ≈ จุดต่ำสุดรอบล่าสุด · แนวต้าน ≈ จุดสูงสุดรอบล่าสุด · <span id="pxSrc">demo</span></p></div>'
 
     + '<div class="card sec"><h3>สมมติฐานและโน้ตของฉัน (บันทึกในเครื่อง)</h3><div class="note-grid">'
     + [['thesis', 'สมมติฐานของฉัน'], ['bull', 'กรณีดี'], ['bear', 'กรณีแย่'], ['entry', 'แผนเข้าซื้อ'], ['risk', 'ความเสี่ยง'], ['notes', 'โน้ต']].map((f) => '<label class="fl">' + f[1] + '<textarea id="n_' + f[0] + '" rows="3" aria-label="' + f[1] + '">' + esc(notes[f[0]]) + '</textarea></label>').join('')
@@ -959,17 +1103,15 @@ function renderStock(t) {
   donut($('#segC'), s.segments); donut($('#geoC'), s.geo);
   lineChart($('#revC'), [{ label: 'Revenue $B', data: s.rev5y, color: '#3b82f6', fill: true }, { label: 'FCF $B', data: s.fcf5y, color: '#22c55e' }], { lastLabels: true });
   lineChart($('#fcfC'), [{ label: 'FCF $B', data: s.fcf5y, color: '#22c55e', fill: true }], { lastLabels: true });
-  const s20 = sma(hist, 20), s50 = sma(hist, 50), s200 = sma(hist, 200);
+  // ---- price chart state: ranges + MA/volume (real daily closes when live)
+  pchartRange = '1Y'; pchartMA = true; pchartVol = false; pchartData = []; pchartLive = false; pchartT = t;
   function drawTech(data, liveTag) {
-    const a20 = sma(data, 20), a50 = sma(data, 50), a200 = sma(data, 200);
-    const seg = data.slice(-260), g50 = a50.slice(-260), g200 = a200.slice(-260);
-    lineChart($('#techC'), [{ label: t + (liveTag ? ' (สดรายวัน)' : ' (จำลอง)'), data: seg, color: '#3b82f6', fill: true }, { label: 'SMA50', data: g50, color: '#eab308', dash: true }, { label: 'SMA200', data: g200, color: '#a78bfa', dash: true }], { h: 220, lastLabels: true });
-    const rr = rsi(data)[data.length - 1];
-    const last200 = a200[a200.length - 1];
-    const win = data.slice(-260);
-    $('#techKV').innerHTML = [['RSI(14)', rr == null ? 'N/A' : rr], ['แนวโน้ม vs SMA200', last200 == null ? 'N/A' : (data[data.length - 1] > last200 ? '<span style="color:var(--green)">เหนือเส้น (ขาขึ้น)</span>' : '<span style="color:var(--red)">หลุดเส้น (ขาลง)</span>')], ['SMA20/50/200', [a20[a20.length - 1], a50[a50.length - 1], last200].map((v) => v == null ? '—' : '$' + v).join(' / ')], ['สูงสุด / ต่ำสุด 52W', '$' + Math.max(...win).toFixed(2) + ' / $' + Math.min(...win).toFixed(2)], ['แนวรับ / แนวต้าน', '$' + Math.min(...data.slice(-60)).toFixed(2) + ' / $' + Math.max(...data.slice(-60)).toFixed(2)]].map((k) => '<div class="cell"><div class="k">' + k[0] + '</div><div class="v" style="font-size:15px">' + k[1] + '</div></div>').join('');
+    setPchart(data.map((c) => ({ c, v: 0 })), !!liveTag);
   }
   drawTech(hist, false);
+  $$('#pxBar [data-pxr]').forEach((b) => b.onclick = () => { pchartRange = b.dataset.pxr; $$('#pxBar [data-pxr]').forEach((x) => x.classList.toggle('on', x === b)); redrawPchart(); });
+  $('#pxMA').onclick = (e) => { pchartMA = !pchartMA; e.target.classList.toggle('on', pchartMA); redrawPchart(); };
+  $('#pxVol').onclick = (e) => { pchartVol = !pchartVol; e.target.classList.toggle('on', pchartVol); redrawPchart(); };
   fillLivePrices();
   fillStockLive(t, drawTech);
   $('[data-watch]').onclick = (e) => toggleWatch(t);
@@ -1387,6 +1529,45 @@ async function rkFuture(t) {
 /* ---------------- COMPARE ------------------------------------------- */
 let cmpSel = ['NVDA', 'AVGO', 'AMD', 'MU', 'ASML'];
 let cmpMetric = 'revGrowth';
+/* price-chart state (per stock page) */
+let pchartRange = '1Y', pchartMA = true, pchartVol = false, pchartData = [], pchartLive = false, pchartT = '';
+const PX_DAYS = { '1M': 22, '3M': 66, '6M': 132, '1Y': 260, '3Y': 780, '5Y': 1300, MAX: 1e9 };
+function setPchart(rows, live) { pchartData = rows; pchartLive = live; redrawPchart(); }
+function redrawPchart() {
+  if (!$('#techC') || !pchartData.length) return;
+  const n = PX_DAYS[pchartRange] || 260;
+  const seg = pchartData.slice(-n);
+  const closes = seg.map((r) => r.c);
+  const series = [{ label: pchartT + (pchartLive ? ' (สดรายวัน)' : ' (จำลอง)'), data: closes, color: '#3b82f6', fill: true }];
+  if (pchartMA) {
+    series.push({ label: 'SMA50', data: sma(closes, 50), color: '#eab308', dash: true });
+    series.push({ label: 'SMA200', data: sma(closes, 200), color: '#a78bfa', dash: true });
+  }
+  lineChart($('#techC'), series, { h: 220, lastLabels: true });
+  const vv = $('#pxV');
+  if (vv) {
+    if (pchartVol && seg.some((r) => r.v > 0)) {
+      vv.style.display = '';
+      const sc = setupCanvas(vv, 70), ctx = sc[0], w = sc[1], h = sc[2];
+      const mx = Math.max(...seg.map((r) => r.v || 0), 1);
+      const bw = (w - 10) / seg.length;
+      seg.forEach((r, i) => {
+        const bh = ((r.v || 0) / mx) * (h - 8);
+        ctx.fillStyle = 'rgba(59,130,246,.55)';
+        ctx.fillRect(5 + i * bw, h - 4 - bh, Math.max(bw - 0.5, 1), bh);
+      });
+    } else vv.style.display = 'none';
+  }
+  const rr = rsi(closes)[closes.length - 1];
+  const a200f = sma(closes, 200), last200 = a200f[a200f.length - 1];
+  const a20f = sma(closes, 20), a50f = sma(closes, 50);
+  const kv = $('#techKV');
+  if (kv) kv.innerHTML = [['RSI(14)', rr == null ? 'N/A' : rr], ['แนวโน้ม vs SMA200', last200 == null ? 'N/A' : (closes[closes.length - 1] > last200 ? '<span style="color:var(--green)">เหนือเส้น (ขาขึ้น)</span>' : '<span style="color:var(--red)">หลุดเส้น (ขาลง)</span>')], ['SMA20/50/200', [a20f[a20f.length - 1], a50f[a50f.length - 1], last200].map((v) => v == null ? '—' : '$' + v).join(' / ')], ['สูงสุด / ต่ำสุดช่วงนี้', '$' + Math.max(...closes).toFixed(2) + ' / $' + Math.min(...closes).toFixed(2)], ['แนวรับ / แนวต้าน', '$' + Math.min(...closes.slice(-60)).toFixed(2) + ' / $' + Math.max(...closes.slice(-60)).toFixed(2)]].map((k) => '<div class="cell"><div class="k">' + k[0] + '</div><div class="v" style="font-size:15px">' + k[1] + '</div></div>').join('');
+  const badge = $('#pxLiveBadge');
+  if (badge) badge.style.display = pchartLive ? '' : 'none';
+  const src = $('#pxSrc');
+  if (src) src.textContent = pchartLive ? 'Stooq daily (REAL DATA)' : 'demo';
+}
 function renderCompare() {
   const metrics = [['revGrowth', 'รายได้โต %'], ['epsGrowth', 'กำไรโต %'], ['grossM', 'มาร์จิ้นขั้นต้น %'], ['opM', 'มาร์จิ้นดำเนินงาน %'], ['fcf', 'FCF $B'], ['roic', 'ROIC %'], ['pe', 'P/E'], ['fwdPE', 'P/E ล่วงหน้า'], ['mcap', 'มูลค่าตลาด $B'], ['debt', 'หนี้ $B'], ['cash', 'เงินสด $B']];
   view().innerHTML = '<div class="hero"><div><h1>โหมดเปรียบเทียบ</h1><p>เทียบข้างกันสูงสุด 5 ตัว ไม่จัดอันดับที่ 1/2/3 — แต่ละตัวชี้วัดมีบริบทของมัน ' + DEMO + '</p></div></div>'
@@ -1473,6 +1654,25 @@ function renderValuation(pre) {
 }
 
 /* ---------------- INDUSTRY ------------------------------------------ */
+const SC_MAP = [
+  { layer: 'GPU', co: 'NVIDIA', t: 'NVDA', note: 'AI accelerator + CUDA' },
+  { layer: 'ASIC', co: 'Broadcom', t: 'AVGO', note: 'Custom XPU + networking' },
+  { layer: 'CPU / Accelerator', co: 'AMD', t: 'AMD', note: 'EPYC + Instinct' },
+  { layer: 'Memory', co: 'Micron', t: 'MU', note: 'DRAM + HBM' },
+  { layer: 'Foundry', co: 'TSMC', t: null, url: 'https://th.tradingview.com/symbols/NYSE-TSM/', note: 'ผลิตชิป (เปิดบน TradingView)' },
+  { layer: 'Lithography', co: 'ASML', t: 'ASML', note: 'EUV เจ้าเดียวในโลก' },
+  { layer: 'Equipment', co: 'Applied Materials', t: null, url: 'https://th.tradingview.com/symbols/NASDAQ-AMAT/', note: 'อุปกรณ์ผลิตชิป (เปิดบน TradingView)' },
+];
+function scMapHTML() {
+  return '<div class="card sec"><div class="sec-head"><h3>🗺 Semiconductor AI Map — กด node เพื่อเปิดรายละเอียด</h3>' + DEMO + '</div>'
+    + '<div class="scmap"><div class="sc-root">AI</div><div class="sc-branch">'
+    + SC_MAP.map((n) => {
+      const link = n.t ? '#/stock/' + n.t : n.url;
+      const ext = n.t ? '' : ' target="_blank" rel="noopener"';
+      return '<a class="sc-node" href="' + link + '"' + ext + '><span class="sc-layer">' + esc(n.layer) + '</span><b>' + esc(n.co) + (n.t ? ' · ' + n.t : ' ↗') + '</b><span class="muted small">' + esc(n.note) + '</span></a>';
+    }).join('') + '</div></div>'
+    + '<p class="muted small">ห่วงโซ่: ออกแบบ (NVDA/AVGO/AMD) → ผลิต (TSMC) ด้วยเครื่อง EUV (ASML) + อุปกรณ์ (AMAT) → หน่วยความจำ HBM (MU) ประกอบเป็น AI server</p></div>';
+}
 function renderIndustry() {
   const groups = [
     ['เซมิคอนดักเตอร์ — AI Compute', 'TAM ~$300B ปี 2030 (demo) · โต ~15%/ปี', ['NVDA', 'AMD', 'AVGO']],
@@ -1481,6 +1681,7 @@ function renderIndustry() {
     ['คลาวด์ — AWS / Azure / GCP', 'TAM ~$1T+ · โต ~17%/ปี', ['GOOGL', 'AMZN']],
   ];
   view().innerHTML = '<div class="hero"><div><h1>อุตสาหกรรมและ TAM</h1><p>แต่ละบริษัทอยู่ตรงไหน ตลาดใหญ่แค่ไหน ใครแข่งบ้าง ' + DEMO + '</p></div></div>'
+    + scMapHTML()
     + groups.map((g) => '<div class="card sec"><div class="sec-head"><h3>' + esc(g[0]) + '</h3><span class="badge b-blue">' + esc(g[1]) + '</span></div><div class="stock-grid">'
       + g[2].map(cardHTML).join('') + '</div></div>').join('')
     + '<div class="card sec"><h3>แผนที่คู่แข่ง</h3><div class="table-wrap"><table><thead><tr><th>สนาม</th><th>ผู้เล่น</th></tr></thead><tbody>'
@@ -1492,7 +1693,15 @@ function renderIndustry() {
 
 /* ---------------- TOOLS (DCA + Portfolio) ---------------------------- */
 function renderTools() {
-  view().innerHTML = '<div class="hero"><div><h1>เครื่องมือ</h1><p>เครื่องจำลอง DCA และพอร์ต จำลองเท่านั้น — ไม่รับประกันผลตอบแทน</p></div></div>'
+  view().innerHTML = '<div class="hero"><div><h1>จำลองลงทุน</h1><p>เครื่องจำลอง DCA · ดอกเบี้ยทบต้น · พอร์ต จำลองเท่านั้น — ไม่รับประกันผลตอบแทน</p></div></div>'
+    + '<div class="card sec"><h3>📈 ดอกเบี้ยทบต้น (Compound)</h3>'
+    + '<div class="grid g4">'
+    + '<label class="fl">เงินตั้งต้น (USD)<input type="number" id="cpI" value="10000"></label>'
+    + '<label class="fl">ลงทุนเพิ่ม/เดือน (USD)<input type="number" id="cpM" value="500"></label>'
+    + '<label class="fl">ผลตอบแทน %/ปี<input type="number" id="cpR" value="10" step="any"></label>'
+    + '<label class="fl">ทบต้น<select id="cpF" class="inline"><option value="12">รายเดือน</option><option value="1">รายปี</option></select></label></div>'
+    + '<div class="row" style="margin-top:10px"><button class="btn sm" id="cpGo">คำนวณ</button></div><div id="cpOut" style="margin-top:10px"></div>'
+    + '<p class="muted small">Scenario simulation only. Not investment advice. ผลตอบแทนในอดีตไม่รับประกันอนาคต</p></div>'
     + '<div class="grid g2"><div class="card"><h3>คำนวณ DCA</h3>'
     + '<div class="row" style="margin-bottom:10px"><label class="fl">สกุลเงิน<select id="dcaC" class="inline"><option value="THB">฿ บาท (THB)</option><option value="USD">$ ดอลลาร์ (USD)</option></select></label><span class="muted small" id="fxNote">กำลังดึงเรท USD→THB จริง…</span></div>'
     + [['dcaM', 'ลงทุนรายเดือน', 10000], ['dcaI', 'เงินตั้งต้น', 50000], ['dcaY', 'จำนวนปี', 10], ['dcaR', 'ผลตอบแทนคาดหวัง %/ปี', 8]].map((f) => '<label class="fl">' + f[1] + '<input type="number" id="' + f[0] + '" value="' + f[2] + '"></label>').join('')
@@ -1529,6 +1738,30 @@ function renderTools() {
   $('#dcaC').onchange = () => { try { localStorage.setItem('asrt_dca_cur', $('#dcaC').value); } catch (_) {} dca(); };
   try { $('#dcaC').value = localStorage.getItem('asrt_dca_cur') || 'THB'; } catch (_) {}
   dca();
+  const cp = () => {
+    const init = +$('#cpI').value || 0, m = +$('#cpM').value || 0, r = (+$('#cpR').value || 0) / 100, f = +$('#cpF').value || 12;
+    const miles = [1, 5, 10, 20, 30];
+    const balAt = (y) => {
+      const n = y * 12;
+      let b = init;
+      for (let mo = 0; mo < n; mo++) { b = b * (1 + r / 12) + m; }
+      void f;
+      return b;
+    };
+    const rows = miles.map((y) => {
+      const principal = init + m * 12 * y, total = balAt(y);
+      return { y, principal, total, growth: total - principal };
+    });
+    $('#cpOut').innerHTML = '<div class="table-wrap"><table><thead><tr><th>ปี</th><th>เงินต้นสะสม</th><th>ดอกผลทบต้น</th><th>มูลค่ารวม</th></tr></thead><tbody>'
+      + rows.map((o) => '<tr><td>' + o.y + 'Y</td><td class="num">' + fmt$(o.principal, 0) + '</td><td class="num" style="color:var(--green)">' + fmt$(o.growth, 0) + '</td><td class="num"><b>' + fmt$(o.total, 0) + '</b></td></tr>').join('')
+      + '</tbody></table></div><canvas class="chart" id="cpC" style="margin-top:10px"></canvas>'
+      + '<p class="muted small"><span class="tag-calc">สูตร</span>ทบต้นรายเดือน: ยอด × (1+r/12) + เงินรายเดือน ทุกเดือน · เส้นน้ำเงิน = เงินต้นสะสม · เส้นเขียว = มูลค่ารวม</p>';
+    lineChart($('#cpC'), [
+      { label: 'เงินต้น', data: rows.map((o) => +o.principal.toFixed(0)), color: '#3b82f6' },
+      { label: 'มูลค่ารวม', data: rows.map((o) => +o.total.toFixed(0)), color: '#22c55e', fill: true },
+    ], { h: 200, lastLabels: true });
+  };
+  $('#cpGo').onclick = cp; $('#cpF').onchange = cp; cp();
   (async () => {
     try {
       const j = await fetchJSON('https://api.frankfurter.app/latest?from=USD&to=THB', 8000);
@@ -1554,6 +1787,98 @@ function renderTools() {
   $('#pfGo').onclick = pf; pf();
 }
 
+/* ---------------- BACKTEST LAB (monthly DCA on REAL Stooq history) -----
+   Strategy: invest fixed USD at each month-end close. Metrics from the
+   resulting portfolio-value series. No fake fills — if history is missing
+   the asset is skipped with a reason. Past ≠ future. -------------------- */
+const BT_ASSETS = ['NVDA', 'AVGO', 'MU', 'ASML', 'AMD', 'VOO', 'BTC'];
+let btSel = ['NVDA', 'AVGO', 'MU', 'ASML', 'AMD'];
+async function getMonthly(t) {
+  const key = 'monthly_' + t;
+  const cached = LiveCache.get(key, 36e5);
+  if (cached) return cached;
+  const sym = STOOQ_SYM[t];
+  if (!sym) throw new Error('No symbol for ' + t);
+  const txt = await fetchText('https://stooq.com/q/d/l/?s=' + sym + '&i=m', 15000);
+  const rows = txt.trim().split('\n').slice(1)
+    .map((ln) => { const p = ln.split(','); return { d: p[0], c: +p[4] }; })
+    .filter((r) => r.c > 0 && /^\d{4}-/.test(r.d || ''));
+  if (rows.length < 24) throw new Error('History too short for ' + t);
+  LiveCache.set(key, rows);
+  return rows;
+}
+function btRun(rows, monthly, initial) {
+  let shares = initial > 0 ? initial / rows[0].c : 0;
+  const vals = [];
+  rows.forEach((r, i) => {
+    if (i > 0) shares += monthly / r.c;
+    vals.push({ d: r.d, v: shares * r.c });
+  });
+  const contrib = initial + monthly * (rows.length - 1);
+  const final = vals[vals.length - 1].v;
+  const yrs = Math.max((new Date(rows[rows.length - 1].d) - new Date(rows[0].d)) / 31557600000, 1 / 12);
+  const totRet = ((final - contrib) / contrib) * 100;
+  const cagr = (Math.pow(final / Math.max(contrib, 1), 1 / yrs) - 1) * 100;
+  const mdd = maxDD(vals.map((x) => x.v));
+  const rets = vals.slice(1).map((x, i) => (x.v - vals[i].v) / vals[i].v);
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const vol = Math.sqrt(rets.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / rets.length) * Math.sqrt(12) * 100;
+  const byYear = {};
+  vals.forEach((x) => { const y = x.d.slice(0, 4); if (!byYear[y]) byYear[y] = []; byYear[y].push(x.v); });
+  const yrets = Object.keys(byYear).map((y) => ({ y, r: ((byYear[y][byYear[y].length - 1] - byYear[y][0]) / byYear[y][0]) * 100 }));
+  yrets.sort((a, b) => a.r - b.r);
+  return { final, contrib, totRet, cagr, mdd, vol, vals, best: yrets[yrets.length - 1], worst: yrets[0], from: rows[0].d, to: rows[rows.length - 1].d };
+}
+function renderBacktest() {
+  view().innerHTML = '<div class="hero"><div><h1>◉ Backtest Lab</h1><p>กลยุทธ์ Monthly DCA บน<b>ราคาจริงรายเดือน (Stooq)</b> — ผลอดีตไม่รับประกันอนาคต จำลองเท่านั้น ไม่ใช่คำแนะนำลงทุน</p></div>'
+    + '<div class="toolbar"><button class="btn sm" id="btGo">▶ รันแบ็กเทสต์</button><span class="muted small" id="btMsg"></span></div></div>'
+    + '<div class="card"><h3>ตั้งค่ากลยุทธ์</h3><div class="toolbar">'
+    + BT_ASSETS.map((t) => '<button class="chip-sel ' + (btSel.includes(t) ? 'on' : '') + '" data-bt="' + t + '">' + t + (t === 'VOO' ? ' (ดัชนี)' : t === 'BTC' ? ' (คริปโต)' : '') + '</button>').join('') + '</div>'
+    + '<div class="grid g3" style="margin-top:10px">'
+    + '<label class="fl">เงินตั้งต้น (USD)<input type="number" id="btI" value="3000"></label>'
+    + '<label class="fl">DCA รายเดือน (USD)<input type="number" id="btM" value="200"></label>'
+    + '<label class="fl">ย้อนหลัง<select id="btY" class="inline"><option value="5">5 ปี</option><option value="10" selected>10 ปี</option></select></label></div></div>'
+    + '<div class="card sec"><div id="btOut"><p class="muted">เลือกสินทรัพย์แล้วกด “▶ รันแบ็กเทสต์” — ระบบจะดึงราคาย้อนหลังจริงแล้วคำนวณ</p></div></div>';
+  $$('[data-bt]').forEach((b) => b.onclick = () => {
+    const t = b.dataset.bt;
+    btSel = btSel.includes(t) ? btSel.filter((x) => x !== t) : [...btSel, t];
+    renderBacktest();
+  });
+  $('#btGo').onclick = fillBacktest;
+}
+async function fillBacktest() {
+  const out = $('#btOut'), msg = $('#btMsg');
+  if (!out) return;
+  if (!DataService.liveOn()) { out.innerHTML = '<p class="muted">เปิดโหมด Live ก่อน (ตั้งค่า) — แบ็กเทสต์ต้องใช้ราคาจริง</p>'; return; }
+  if (!btSel.length) { out.innerHTML = '<p style="color:var(--red)">เลือกสินทรัพย์อย่างน้อย 1 ตัว</p>'; return; }
+  const monthly = +$('#btM').value || 0, initial = +$('#btI').value || 0, yrs = +$('#btY').value || 10;
+  out.innerHTML = '<p class="muted">กำลังดึงราคาย้อนหลังจริง ' + btSel.join(' · ') + '…</p>';
+  if (msg) msg.textContent = 'กำลังคำนวณ…';
+  const results = [];
+  for (const t of btSel) {
+    try {
+      const rows = (await getMonthly(t)).slice(-(yrs * 12 + 1));
+      if (rows.length < 24) throw new Error('history too short');
+      results.push({ t, ok: true, r: btRun(rows, monthly, initial) });
+    } catch (e) { results.push({ t, ok: false, err: e.message }); }
+  }
+  if (!$('#btOut')) return;
+  const good = results.filter((x) => x.ok);
+  if (!good.length) { out.innerHTML = '<p style="color:var(--red)">ดึงข้อมูลไม่ได้เลย (' + esc(results[0].err || 'network') + ') — เช็คเน็ตแล้วลองใหม่ ข้อมูลเก่าจะไม่ถูกเอามาหลอกว่าเป็นของจริง</p>'; if (msg) msg.textContent = ''; return; }
+  const cols = ['#3b82f6', '#22d3ee', '#a78bfa', '#22c55e', '#eab308', '#f97316', '#f87171'];
+  out.innerHTML = '<p class="muted small">งวด ' + esc(good[0].r.from) + ' → ' + esc(good[0].r.to) + ' · เงินต้นรวมต่อสินทรัพย์ $' + Math.round(good[0].r.contrib).toLocaleString('en-US') + ' · <span class="badge b-green">REAL DATA · Stooq monthly</span></p>'
+    + '<div class="table-wrap"><table><thead><tr><th>สินทรัพย์</th><th>มูลค่าสุดท้าย</th><th>Total Return</th><th>CAGR</th><th>Max Drawdown</th><th>Vol (ann.)</th><th>ปีดีสุด</th><th>ปีแย่สุด</th></tr></thead><tbody>'
+    + results.map((x) => x.ok
+      ? '<tr><td><b>' + x.t + '</b></td><td class="num">' + fmt$(x.r.final, 0) + '</td><td class="num" style="color:' + (x.r.totRet >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtPct(x.r.totRet) + '</td><td class="num">' + fmtPct(x.r.cagr) + '</td><td class="num" style="color:var(--red)">' + fmtN(x.r.mdd, 1) + '%</td><td class="num">' + fmtN(x.r.vol, 1) + '%</td><td class="num">' + x.r.best.y + ' (' + fmtPct(x.r.best.r, 0) + ')</td><td class="num">' + x.r.worst.y + ' (' + fmtPct(x.r.worst.r, 0) + ')</td></tr>'
+      : '<tr><td><b>' + x.t + '</b></td><td colspan="7" style="color:var(--red)">ข้อมูลยังไม่พอ (' + esc(x.err) + ')</td></tr>').join('')
+    + '</tbody></table></div><canvas class="chart" id="btC" style="margin-top:12px"></canvas>'
+    + '<p class="muted small"><span class="tag-calc">วิธีคำนวณ</span>ซื้อทุกสิ้นเดือนที่ราคาปิดจริง · CAGR = (final/contrib)^(1/years)−1 · MDD = จุดตกสูงสุดของมูลค่าพอร์ต · Vol = SD รายเดือน × √12 · <b>ผลอดีตไม่การันตีอนาคต · Scenario simulation only. Not investment advice.</b></p>';
+  try {
+    lineChart($('#btC'), good.map((x, i) => ({ label: x.t, data: x.r.vals.map((v) => +v.v.toFixed(0)), color: cols[i % cols.length] })), { h: 220, lastLabels: true });
+  } catch (_) {}
+  if (msg) msg.textContent = 'เสร็จ ' + new Date().toLocaleTimeString('th-TH');
+}
+
 /* ---------------- JOURNAL ------------------------------------------- */
 function renderJournal() {
   const t0 = TICKERS[0];
@@ -1573,9 +1898,23 @@ function renderJournal() {
 }
 
 /* ---------------- NEWS ---------------------------------------------- */
+function newsInterp(n) {
+  const names = n.tick.filter((x) => x !== 'ALL').map((x) => (SEED[x] ? x + ' (' + SEED[x].industry + ')' : x)).join(' · ');
+  return '<span class="tag-interp">AI ตีความ</span><span class="small">ข่าวนี้เกี่ยวกับ <b>' + esc(names || 'ภาพรวมตลาด') + '</b> — '
+    + 'สิ่งที่ควรตามต่อคือ (1) รายได้/มาร์จิ้นในงบ 10-Q งวดถัดไปยืนยันเทรนด์นี้ไหม (2) งบลงทุน (capex) ของลูกค้ากลุ่ม hyperscaler (3) เหตุการณ์ 8-K ใหม่ๆ '
+    + 'ข่าวเป็น Tier-3 (บริบท) ไม่แทนงบการเงิน ตัดสินใจจาก SEC filings + valuation ของคุณเอง</span>';
+}
 function renderNews() {
-  view().innerHTML = '<div class="hero"><div><h1>ข่าว — บริบท ไม่ใช่งบการเงิน</h1><p>ข่าว Tier-3 (Reuters · Bloomberg · CNBC · FT · WSJ) ให้แค่บริบทประกอบเท่านั้น</p></div></div>'
-    + '<div class="grid g2">' + NEWS.map((n) => '<div class="card"><span class="badge b-gray">' + esc(n.src) + ' · ' + esc(n.date) + '</span><h3 style="margin-top:8px">' + esc(n.title) + '</h3><p class="muted small">' + esc(n.body) + '</p><p class="small">เกี่ยวข้อง: ' + n.tick.map((t) => '<a href="#/stock/' + t + '">' + t + '</a>').join(' · ') + '</p></div>').join('') + '</div>';
+  view().innerHTML = '<div class="hero"><div><h1>ข่าว — บริบท ไม่ใช่งบการเงิน</h1><p>ข่าว Tier-3 (Reuters · Bloomberg · CNBC · FT · WSJ) ให้แค่บริบทประกอบเท่านั้น แยก <span class="tag-fact">ข้อเท็จจริง</span> กับ <span class="tag-interp">AI ตีความ</span> ชัดเจน</p></div></div>'
+    + '<div class="grid g2">' + NEWS.map((n, i) => '<div class="card"><span class="badge b-gray">' + esc(n.src) + ' · ' + esc(n.date) + '</span><h3 style="margin-top:8px">' + esc(n.title) + '</h3>'
+      + '<p class="muted small"><span class="tag-fact">FACT</span>' + esc(n.body) + '</p>'
+      + '<div id="ni_' + i + '" style="display:none;margin-top:6px">' + newsInterp(n) + '</div>'
+      + '<div class="row" style="margin-top:8px"><button class="btn ghost sm" data-news="' + i + '">🤖 สรุปโดย AI</button></div>'
+      + '<p class="small">เกี่ยวข้อง: ' + n.tick.map((x) => x === 'ALL' ? 'ALL' : '<a href="#/stock/' + x + '">' + x + '</a>').join(' · ') + '</p></div>').join('') + '</div>';
+  $$('[data-news]').forEach((b) => b.onclick = () => {
+    const el = $('#ni_' + b.dataset.news);
+    if (el) { const open = el.style.display !== 'none'; el.style.display = open ? 'none' : ''; b.textContent = open ? '🤖 สรุปโดย AI' : 'ซ่อนสรุป'; }
+  });
 }
 
 /* ---------------- SETTINGS ------------------------------------------ */
